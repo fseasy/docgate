@@ -1,14 +1,15 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
+from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from supertokens_python import get_all_cors_headers
 from supertokens_python.framework.fastapi import get_middleware
-from fastapi import Depends
-
 from supertokens_python.recipe.session import SessionContainer
 from supertokens_python.recipe.session.framework.fastapi import verify_session
 
-
 from docgate import config
+from docgate.logics import InviteCode
+from docgate.models import Tier
+from docgate.repositories import get_user, record_invite_code
 from docgate.supertokens_config import init_supertokens
 
 logger = config.LOGGER
@@ -18,21 +19,42 @@ init_supertokens()
 
 
 app = FastAPI(
-    title=f"{config.APP_NAME}-backend",
+  title=f"{config.APP_NAME}-backend",
 )
 
 app.add_middleware(get_middleware())
 
 # start apis
 
-@app.post('/like_comment') 
-async def like_comment(session: SessionContainer = Depends(verify_session())):
+class InviteResult(BaseModel):
+  error: str | None
+  code: str | None
+  lifetime: str | None
+
+
+@app.post("/gen_invite_code")
+async def gen_invite(session: SessionContainer = Depends(verify_session())) -> InviteResult:
+  """generate invite-code, record it to table"""
+
+  def _logic():
     user_id = session.get_user_id()
+    user = get_user(user_id)
+    # assert user has the permission
+    if not user or user.tier != Tier.INTERNAL_MANAGER:
+      return InviteResult(
+        error=f"user: {user_id} doesn't have permission to generate invite code", code=None, lifetime=None
+      )
+    invite_code = InviteCode.gen_invite_code()
+    lifetime = InviteCode.get_lifetime()
+    record_invite_code(invite_code, lifetime)
+    return InviteResult(error=None, code=invite_code, lifetime=lifetime.strftime("%Y-%m-%d %H:%M:%S %z"))
 
-    print(user_id)
-  
+  try:
+    return _logic()
+  except Exception as e:
+    return InviteResult(error=str(e), code=None, lifetime=None)
 
-  
+
 # after all the apis
 app.add_middleware(
   CORSMiddleware,

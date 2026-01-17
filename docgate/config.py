@@ -1,32 +1,27 @@
+import logging
 import os
 import sys
-from pathlib import Path
 from enum import StrEnum
-import logging
+from pathlib import Path
 
 from dotenv import load_dotenv
+
 
 class Env(StrEnum):
   DEV = "dev"
   PROD = "prod"
 
 
-def _conf_logging(env: Env):
-  if env == Env.DEV:
-    loglevel = logging.DEBUG
-  else:
-    loglevel = logging.WARNING
+def _build_logger(name: str, level: int):
+  logger = logging.getLogger(name)
 
-  logging.basicConfig(
-    level=loglevel,
-    format="%(asctime)s/%(name)s/%(levelname)s/%(filename)s:%(lineno)d> %(message)s",
-    handlers=[
-      logging.StreamHandler(sys.stderr),
-    ],
-  )
-  # 获取应用日志记录器
-  logger = logging.getLogger("uvicorn")
-  logger.setLevel(logging.INFO)  # 设置 uvicorn 的日志等级
+  streamHander = logging.StreamHandler(stream=sys.stderr)
+  fmt = logging.Formatter("%(asctime)s/%(name)s/%(levelname)s/%(filename)s:%(lineno)d> %(message)s")
+  streamHander.setFormatter(fmt)
+  streamHander.setLevel(level)
+  logger.addHandler(streamHander)
+  logger.setLevel(level)
+
   return logger
 
 
@@ -40,9 +35,6 @@ try:
 except ValueError:
   raise RuntimeError(f"Invalid ENV value: {_env_str}, candidates={[v for v in Env]}")
 
-_conf_logging(env)
-
-
 _root_dir = Path(__file__).parent.absolute()
 _shared_dev_conf_path = _root_dir / ".env.local"
 _shared_prod_conf_path = _root_dir / ".env.production"
@@ -55,7 +47,7 @@ load_dotenv(_shared_conf_path)
 
 APP_NAME = os.environ["VITE_APP_NAME"]
 
-LOGGER = logging.getLogger(APP_NAME)
+LOGGER = _build_logger(APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO)
 
 LOGGER.info(f"Loaded shared env from [{_shared_conf_path}]")
 

@@ -1,44 +1,59 @@
-from enum import  StrEnum, IntEnum
-from datetime import datetime, timezone
+from datetime import datetime
+from enum import IntEnum, StrEnum
 
-from sqlalchemy import Integer, String, DateTime
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import create_engine
+from peewee import AutoField, BooleanField, CharField, DateTimeField, IntegerField, Model, SqliteDatabase
+
+from .logics import InviteCode as InviteCodeLogic
+
 
 # Define enums
 class PayMethod(StrEnum):
-  RED_NOTE = "RED_NOTE"
+  INVITE_CODE = "invite_code"
   SELF_HOSTED_PAYWALL = "self_hosted_paywall"
 
 
 class Tier(IntEnum):
   INTERNAL_MANAGER = 0
   INTERNAL = 1
-  NORMAL_CUSTOMER = 2
+  FREE = 2
+  GOLD = 3
 
 
-class Base(DeclarativeBase):
-  pass
-
-
-class User(Base):
-  __tablename__ = "users"
-
-  uid: Mapped[str] = mapped_column(String(36), primary_key=True)
-  create_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-  last_active_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-  pay_method: Mapped[PayMethod] = mapped_column(String(36))
-  lifetime: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True))
-  tier: Mapped[Tier] = mapped_column(Integer())
-
-
-def _create_sqlite_engine():
+def _create_sqlite_db():
   from pathlib import Path
 
   _workspace_dir = Path(__file__).parent
-  DB_PATH = f"sqlite:///{_workspace_dir / 'sqlite.db'}"
-  engine = create_engine(DB_PATH, echo=True)
-  return engine
+  DB_PATH = f"{_workspace_dir / 'sqlite.db'}"
+  return SqliteDatabase(DB_PATH)
 
 
-engine = _create_sqlite_engine()
+db = _create_sqlite_db()
+
+
+class DbBaseModel(Model):
+  class Meta:
+    database = db
+
+
+class User(DbBaseModel):
+  external_id = CharField(36, unique=True, index=True)  # for external user id
+  email = CharField(100, index=True)
+  create_at = DateTimeField(default=datetime.now)
+  last_active_at = DateTimeField(default=datetime.now)
+  pay_method = CharField(30, null=True)
+  lifetime = DateTimeField(null=True)  # currently it's always None because it's always lifelong
+  tier = IntegerField()
+
+
+class InviteCode(DbBaseModel):
+  id = AutoField()
+  code = CharField(InviteCodeLogic.code_len(), index=True)
+  lifetime = DateTimeField()
+  has_used = BooleanField()
+
+  def is_redeemable(self) -> tuple[bool, str | None]:
+    if self.has_used:
+      return (False, f"code={self} has already been used")
+    if datetime.now() > self.lifetime:
+      return (False, f"code={self} has expired(lifetime={self.lifetime})")
+    return (True, None)

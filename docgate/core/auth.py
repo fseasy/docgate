@@ -1,9 +1,9 @@
-from fastapi import HTTPException, Depends
-from sqlalchemy.orm import Session
-from docgate.db import get_db
-from docgate.utils.jwt import create_access_token
 from docgate.utils.password import verify_password
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
 from docgate.models import User
+
 
 def authenticate_user(db: Session, email: str, password: str):
     user = db.query(User).filter(User.email == email).first()
