@@ -15,11 +15,11 @@ class Env(StrEnum):
 def _build_logger(name: str, level: int):
   logger = logging.getLogger(name)
 
-  streamHander = logging.StreamHandler(stream=sys.stderr)
+  streamHandler = logging.StreamHandler(stream=sys.stderr)
   fmt = logging.Formatter("%(asctime)s/%(name)s/%(levelname)s/%(filename)s:%(lineno)d> %(message)s")
-  streamHander.setFormatter(fmt)
-  streamHander.setLevel(level)
-  logger.addHandler(streamHander)
+  streamHandler.setFormatter(fmt)
+  streamHandler.setLevel(level)
+  logger.addHandler(streamHandler)
   logger.setLevel(level)
 
   return logger
@@ -36,20 +36,26 @@ except ValueError:
   raise RuntimeError(f"Invalid ENV value: {_env_str}, candidates={[v for v in Env]}")
 
 _root_dir = Path(__file__).parent.absolute()
-_shared_dev_conf_path = _root_dir / ".env.local"
-_shared_prod_conf_path = _root_dir / ".env.production"
+_client_shared_prod_conf_path = _root_dir / ".env.client_shared.production"
+_client_shared_dev_conf_path = _root_dir / ".env.client_shared.local"
+_server_dev_conf_path = _root_dir / ".env.server.local"
+_server_prod_conf_path = _root_dir / ".env.server.production"
 
 if env == Env.PROD:
-  _shared_conf_path = _shared_prod_conf_path
+  load_dotenv(_client_shared_prod_conf_path)
+  load_dotenv(_server_prod_conf_path)
 else:
-  _shared_conf_path = _shared_dev_conf_path
-load_dotenv(_shared_conf_path)
+  load_dotenv(_client_shared_dev_conf_path)
+  load_dotenv(_server_dev_conf_path)
+
 
 APP_NAME = os.environ["VITE_APP_NAME"]
 
 LOGGER = _build_logger(APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO)
 
-LOGGER.info(f"Loaded shared env from [{_shared_conf_path}]")
+LOGGER.info(f"Loaded client and server environmental vars for ENV={env}")
 
 API_DOMAIN = os.environ["VITE_API_DOMAIN"]
 WEBSITE_DOMAIN = os.environ["VITE_WEBSITE_DOMAIN"]
+SUPERTOKENS_CONNECTION_URI = os.environ["SUPERTOKENS_CONNECTION_URI"]
+SUPERTOKENS_API_KEY = os.environ["SUPERTOKENS_API_KEY"]

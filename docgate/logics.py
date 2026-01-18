@@ -1,28 +1,23 @@
 import traceback
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import TYPE_CHECKING
 
+from sqlalchemy.orm import Session
 from supertokens_python.recipe.emailpassword.types import FormField
 from supertokens_python.types import User as StUser
 
 from . import config as config
+from .models import InviteCode as InviteCodeModel
 from .repositories import create_free_user, create_user_with_redeeming_invite_code, get_db_session_cxt, get_invite_code
 
 logger = config.LOGGER
 
 
-if TYPE_CHECKING:
-  from sqlalchemy.orm import Session
-  from supertokens_python.recipe.emailpassword.types import FormField
-
-
 class InviteCode(object):
   @staticmethod
   def code_len():
-    INVITE_CODE_LEN = 10
-    return INVITE_CODE_LEN
+    return InviteCodeModel.CODE_LEN
 
   @staticmethod
   def gen_invite_code():
@@ -31,11 +26,11 @@ class InviteCode(object):
     return code
 
   @staticmethod
-  def get_lifetime(base: datetime | None = None) -> datetime:
+  def calc_lifetime(base: datetime | None = None) -> datetime:
     EXPIRE_DAYS = 14
 
     if not base:
-      base = datetime.now()
+      base = datetime.now(tz=timezone.utc)
     return base + timedelta(days=EXPIRE_DAYS)
 
 
@@ -70,25 +65,29 @@ def create_user_after_supertokens_signup(user: StUser, form_fields: list[FormFie
         break
     if invite_code_field is None:
       db_user = create_free_user(db_session, user_id=user.id, email=user.emails[0])
-      logger.warning("Invite-code: no form field found! Free user [{db_user}] created.")
+      logger.warning(f"Invite-code: Form field not found! Free user [{db_user}] created.")
       return
-    invite_code_str = invite_code_field.value
+    invite_code_str = invite_code_field.value.strip()
+    if not invite_code_str:
+      db_user = create_free_user(db_session, user_id=user.id, email=user.emails[0])
+      logger.warning(f"Invite-code: From field value is empty! Free user [{db_user}] created.")
+      return
     code_data = get_invite_code(db_session, invite_code_str)
     if not code_data:
-      pay_log = f"RedeemInviteCode: failed on not found code: {invite_code_str}"
+      pay_log = f"RedeemInviteCode Fail: code=[{invite_code_str}] wasn't exist in DB"
       db_user = create_free_user(db_session, user_id=user.id, email=user.emails[0], pay_log=pay_log)
       logger.warning(f"{pay_log}. Free user [{db_user}] created.")
       return
     is_redeemable, reason = code_data.redeemable_with_reason
     if not is_redeemable:
-      pay_log = f"RedeemInviteCode: failed on unredeemable code: {invite_code_str}, reason={reason}"
+      pay_log = f"RedeemInviteCode Fail: unredeemable code=[{invite_code_str}], reason={reason}"
       db_user = create_free_user(db_session, user_id=user.id, email=user.emails[0], pay_log=pay_log)
       logger.warning(f"{pay_log}. Free user [{db_user}] created.")
       return
     db_user = create_user_with_redeeming_invite_code(
       db_session, user_id=user.id, email=user.emails[0], invite_code=code_data
     )
-    logger.info(f"RedeemInviteCode: redeem code={invite_code_str} success. Pay User [{db_user}] created.")
+    logger.info(f"RedeemInviteCode Success: redeem code=[{invite_code_str}]. Pay User [{db_user}] created.")
 
   try:
     assert user.emails, f"SuperTokens user doesn't contain emails: {user}"

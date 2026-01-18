@@ -17,9 +17,8 @@ def get_db_session() -> Generator[Session, None, None]:
     s.close()
 
 
-"""Used in out-of fastapi scope or place that can't get connection level session"""
 get_db_session_cxt = contextmanager(get_db_session)
-
+"""Used in out-of fastapi scope or place that can't get connection level session"""
 
 
 def create_user(
@@ -41,32 +40,42 @@ def create_user(
 
 
 def create_user_with_redeeming_invite_code(
-  session: Session, *, user_id: str, email: str, invite_code: InviteCode
+  session: Session, *, user_id: str, email: str, invite_code: InviteCode, do_commit: bool = True
 ) -> User:
   """business logic"""
   pay_log = f"Redeem invite-code({invite_code.code})"
-  with session.begin():
-    user = create_user(
-      session,
-      user_id=user_id,
-      email=email,
-      pay_method=PayMethod.INVITE_CODE,
-      pay_log=pay_log,
-      lifetime=None,
-      tier=Tier.GOLD,
-      do_commit=False,  # will do final commit
-    )
-    invite_code.has_used = True
-    invite_code.bind_user_id = user_id
-    session.add(invite_code)
+  # X with session.begin(): use this may raise exception: A transaction is already begun on this Session.
+  user = create_user(
+    session,
+    user_id=user_id,
+    email=email,
+    pay_method=PayMethod.INVITE_CODE,
+    pay_log=pay_log,
+    lifetime=None,
+    tier=Tier.GOLD,
+    do_commit=False,  # will do final commit
+  )
+  invite_code.has_used = True
+  invite_code.bind_user_id = user_id
+  session.add(invite_code)
+  if do_commit:
     session.commit()
   return user
 
 
-def create_free_user(session: Session, *, user_id: str, email: str, pay_log: str = "Create without payment"):
+def create_free_user(
+  session: Session, *, user_id: str, email: str, pay_log: str = "Create without payment", do_commit: bool = True
+):
   """Business logic"""
   user = create_user(
-    session, user_id=user_id, email=email, pay_method=None, pay_log=pay_log, lifetime=None, tier=Tier.FREE
+    session,
+    user_id=user_id,
+    email=email,
+    pay_method=None,
+    pay_log=pay_log,
+    lifetime=None,
+    tier=Tier.FREE,
+    do_commit=do_commit,
   )
   return user
 

@@ -1,22 +1,18 @@
-from typing import TYPE_CHECKING, Generator
-
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from starlette.middleware.cors import CORSMiddleware
 from supertokens_python import get_all_cors_headers
 from supertokens_python.framework.fastapi import get_middleware
 from supertokens_python.recipe.session import SessionContainer
 from supertokens_python.recipe.session.framework.fastapi import verify_session
+from supertokens_python.recipe.userroles import UserRoleClaim
 
 from docgate import config
 from docgate.logics import InviteCode
 from docgate.models import Tier
 from docgate.repositories import create_invite_code, get_db_session, get_user
-from docgate.supertokens_config import init_supertokens
-
-if TYPE_CHECKING:
-  from sqlalchemy.orm import Session
-
+from docgate.supertokens_config import StRole, init_supertokens
 
 logger = config.LOGGER
 
@@ -46,21 +42,19 @@ async def gen_invite(
 ) -> InviteResult:
   """generate invite-code, record it to table"""
 
-  def _logic():
+  async def _logic():
     user_id = session.get_user_id()
-    user = get_user(db_session, user_id)
-    # assert user has the permission
-    if not user or user.tier != Tier.INTERNAL_MANAGER:
-      return InviteResult(
-        error=f"user: {user_id} doesn't have permission to generate invite code", code=None, lifetime=None
-      )
+    # We use Supertokens' User Role to control the permission
+    roles = await session.get_claim_value(UserRoleClaim)
+    if roles is None or StRole.ADMIN not in roles:
+      return InviteResult(error=f"user [{user_id}] didn't have admin role. roles={roles}", code=None, lifetime=None)
     invite_code = InviteCode.gen_invite_code()
-    lifetime = InviteCode.get_lifetime()
+    lifetime = InviteCode.calc_lifetime()
     create_invite_code(db_session, invite_code, lifetime)
     return InviteResult(error=None, code=invite_code, lifetime=lifetime.strftime("%Y-%m-%d %H:%M:%S %z"))
 
   try:
-    return _logic()
+    return await _logic()
   except Exception as e:
     return InviteResult(error=str(e), code=None, lifetime=None)
 

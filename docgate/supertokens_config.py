@@ -1,3 +1,4 @@
+from enum import StrEnum
 from typing import Any
 
 from supertokens_python import InputAppInfo, SupertokensConfig, init
@@ -22,7 +23,9 @@ def init_supertokens():
   def get_website_domain() -> str:
     return base_conf.WEBSITE_DOMAIN
 
-  supertokens_config = SupertokensConfig(connection_uri="https://try.supertokens.com")
+  supertokens_config = SupertokensConfig(
+    connection_uri=base_conf.SUPERTOKENS_CONNECTION_URI, api_key=base_conf.SUPERTOKENS_API_KEY
+  )
 
   app_info = InputAppInfo(
     app_name=base_conf.APP_NAME,
@@ -34,6 +37,7 @@ def init_supertokens():
 
   recipe_list = [session.init(), dashboard.init(), userroles.init(), _init_emailpassword()]
 
+  logger.info("SuperTokens: Init supertokens")
   init(
     supertokens_config=supertokens_config,
     app_info=app_info,
@@ -42,6 +46,12 @@ def init_supertokens():
     mode="asgi",
     telemetry=False,
   )
+  logger.info("SuperTokens: Init done")
+
+
+class StRole(StrEnum):
+  USER = "user"
+  ADMIN = "admin"
 
 
 def _init_emailpassword():
