@@ -1,4 +1,3 @@
-from enum import StrEnum
 from typing import Any
 
 from supertokens_python import InputAppInfo, SupertokensConfig, init
@@ -9,11 +8,9 @@ from supertokens_python.recipe.emailpassword.interfaces import (
   SignUpPostOkResult,
 )
 from supertokens_python.recipe.emailpassword.types import FormField
-from supertokens_python.types import User as StUser
 
 from . import config as base_conf
-from .logics import InviteCode as InviteCodeLogic
-from .repositories import get_invite_code
+from .logics import FormFieldId, create_user_after_supertokens_signup, validate_password
 
 logger = base_conf.LOGGER
 
@@ -47,10 +44,6 @@ def init_supertokens():
   )
 
 
-class FormFieldId(StrEnum):
-  INVITE_CODE = "invite-code"
-
-
 def _init_emailpassword():
   from supertokens_python.recipe.emailpassword import InputFormField
 
@@ -79,50 +72,25 @@ def _init_emailpassword():
 
       # Post sign up response, we check if it was successful
       if isinstance(response, SignUpPostOkResult):
-        _post_signup(response.user, form_fields)
+        err = create_user_after_supertokens_signup(response.user, form_fields)
+        if err:
+          logger.warning(f"{err}")
 
       return response
 
     original_implementation.sign_up_post = sign_up_post
     return original_implementation
 
-  async def _validate_password(value: str, _tenant_id: str):
-    import re
-
-    print("password = ", value)
-
-    if re.search(r"[s]", value):
-      return "Password can't contain whitespace"
+  async def _validate_password(value: str, _tenant_id: str) -> str | None:
+    return validate_password(value)
 
   return emailpassword.init(
+    override=emailpassword.InputOverrideConfig(apis=_override_email_password_apis),
     sign_up_feature=emailpassword.InputSignUpFeature(
       form_fields=[
         InputFormField(id="password", validate=_validate_password),
-        InputFormField(id="invite-code", optional=True),
+        InputFormField(id=FormFieldId.INVITE_CODE.value, optional=True),
         InputFormField(id="confirm-password"),
       ]
-    )
+    ),
   )
-
-
-def _post_signup(user: StUser, form_fields: list[FormField]):
-  def _create_free_user():
-    
-
-  invite_code_field: FormField | None = None
-  for f in form_fields:
-    if f.id == FormFieldId.INVITE_CODE:
-      invite_code_field = f
-      break
-  if invite_code_field is None:
-    logger.warning("Invite-code: no form field found!")
-    return
-  invite_code = invite_code_field.value
-  code_data = get_invite_code(invite_code)
-  if not code_data:
-    logger.warning(f"Invite-code: can't find code={invite_code} in db")
-    return
-  is_redeemable, err = code_data.is_redeemable()
-  if not is_redeemable:
-    logger.warning(f"Invite-code: can't redeem code={invite_code}, err={err}")
-    return

@@ -4,4 +4,4 @@
 # - cd $WORKSPACE_ROOT
 # - uv pip install -e .
 
-uv run python -c "from docgate.models import db, User; db.connect(); db.create_tables([User])"
+uv run python -c "from docgate.models import DbBaseModel, engine; DbBaseModel.metadata.create_all(engine);"
