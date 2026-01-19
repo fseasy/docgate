@@ -1,3 +1,4 @@
+import traceback
 from enum import StrEnum
 from typing import Any
 
@@ -9,9 +10,10 @@ from supertokens_python.recipe.emailpassword.interfaces import (
   SignUpPostOkResult,
 )
 from supertokens_python.recipe.emailpassword.types import FormField
+from supertokens_python.types.response import GeneralErrorResponse
 
 from . import config as base_conf
-from .logics import FormFieldId, create_user_after_supertokens_signup, validate_password
+from .logics import CreateUserStatus, FormFieldId, create_user_after_supertokens_signup, validate_password
 
 logger = base_conf.LOGGER
 
@@ -82,9 +84,27 @@ def _init_emailpassword():
 
       # Post sign up response, we check if it was successful
       if isinstance(response, SignUpPostOkResult):
-        err = create_user_after_supertokens_signup(response.user, form_fields)
-        if err:
-          logger.warning(f"{err}")
+        user = response.user
+        status = create_user_after_supertokens_signup(user, form_fields)
+        if status == CreateUserStatus.INTERNAL_UNEXPECTED_ERROR:
+          # need rollback on the supertokens side!
+          from .supertokens_utils import delete_user
+
+          try:
+            delete_user(user.id)
+          except Exception as e:
+            err_str = (
+              f"Supertokens: delete user failed after create-user failure. user={user.to_json()}, "
+              f"e=[{e}], stack={traceback.format_exc()}"
+            )
+            logger.error(f"{err_str}")
+            response = GeneralErrorResponse(err_str)  # override response!
+          else:
+            response = GeneralErrorResponse(
+              f"Failed due to internal create-user side error. user={user.to_json()}, Please contact admin"
+            )  # override response!
+        elif status == CreateUserStatus.CREATE_USER_FAILED_ON_SUPERTOKENS_INVALID_USER_DATA:
+          response = GeneralErrorResponse(f"Failed due to supertokens invalid user data: {user.to_json()}")
 
       return response
 

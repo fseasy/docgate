@@ -1,3 +1,6 @@
+import traceback
+from typing import Any
+
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -7,12 +10,14 @@ from supertokens_python.framework.fastapi import get_middleware
 from supertokens_python.recipe.session import SessionContainer
 from supertokens_python.recipe.session.framework.fastapi import verify_session
 from supertokens_python.recipe.userroles import UserRoleClaim
+from supertokens_python.types import User as StUser
 
 from docgate import config
 from docgate.logics import InviteCode
 from docgate.models import Tier
 from docgate.repositories import create_invite_code, get_db_session, get_user
 from docgate.supertokens_config import StRole, init_supertokens
+from docgate.supertokens_utils import async_get_user
 
 logger = config.LOGGER
 
@@ -28,6 +33,26 @@ app = FastAPI(
 app.add_middleware(get_middleware())
 
 # start apis
+
+
+class StUserResult(BaseModel):
+  error: str | None
+  user: dict[str, Any] | None
+
+
+@app.get("/get_current_supertokens_user")
+async def get_current_st_user(session: SessionContainer = Depends(verify_session())) -> StUserResult:
+  uid = session.user_id
+  try:
+    user = await async_get_user(uid)
+  except Exception as e:
+    err = f"[api]: GetUserEmails get errors: uid={uid}, err={e}, stack={traceback.format_exc()}"
+    logger.error(f"{err}")
+    return StUserResult(error=err, user=None)
+  if not user:
+    logger.info(f"[api]: GetUserEmails get None user, uid={uid}")
+    return StUserResult(error=None, user=None)
+  return StUserResult(error=None, user=user.to_json())
 
 
 class InviteResult(BaseModel):

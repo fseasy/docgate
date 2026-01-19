@@ -8,6 +8,18 @@ from .supertokens_config import StRole
 logger = base_conf.LOGGER
 
 
+def delete_user(user_id: str) -> None:
+  from supertokens_python.syncio import delete_user
+
+  delete_user(user_id=user_id)
+
+
+async def async_get_user(user_id: str) -> User | None:
+  from supertokens_python.asyncio import get_user
+
+  return await get_user(user_id)
+
+
 def get_user_by_email(email: str) -> list[User]:
   from supertokens_python.syncio import list_users_by_account_info
   from supertokens_python.types.base import AccountInfoInput
