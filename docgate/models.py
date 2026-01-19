@@ -63,6 +63,31 @@ class IntEnumDecorator(TypeDecorator):
     return self.enum_class(value)
 
 
+class TZDateTime(TypeDecorator):
+  """Save & Load always keep the UTC tz. (sqlite didn't reserve the tz info, which may error-prone)"""
+
+  impl = DateTime  # lower type
+  cache_ok = True  # allow SQLAlchemy cache
+
+  def process_bind_param(self, value, dialect):
+    """when bind outer value"""
+    if value is None:
+      return None
+    if value.tzinfo is None:
+      value = value.replace(tzinfo=timezone.utc)
+    else:
+      value = value.astimezone(timezone.utc)
+    return value
+
+  def process_result_value(self, value, dialect):
+    """when read from dialect db"""
+    if value is None:
+      return None
+    if value.tzinfo is None:  # 1. no tz 2. tz = utc
+      return value.replace(tzinfo=timezone.utc)
+    return value
+
+
 class DbBaseModel(DeclarativeBase):
   pass
 
@@ -72,9 +97,9 @@ class User(DbBaseModel):
 
   id: Mapped[str] = mapped_column(String(36), primary_key=True)  # for external user id
   email: Mapped[str] = mapped_column(String(100), index=True)
-  created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc))
+  created_at: Mapped[datetime] = mapped_column(TZDateTime, default=lambda: datetime.now(tz=timezone.utc))
   last_active_at: Mapped[datetime] = mapped_column(
-    DateTime(timezone=True),
+    TZDateTime,
     default=lambda: datetime.now(tz=timezone.utc),
     onupdate=lambda: datetime.now(tz=timezone.utc),
   )
@@ -89,7 +114,7 @@ class User(DbBaseModel):
 
   pay_log: Mapped[str] = mapped_column(Text, default="")  # log for payment (success, error, history)
   # currently it's always None because it's always lifelong
-  lifetime: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+  lifetime: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
   tier: Mapped[Tier] = mapped_column(IntEnumDecorator(Tier))
 
   # one user may have 0/multiple invite-codes (in the future>>>). only relationship in ORM level
@@ -112,7 +137,7 @@ class InviteCode(DbBaseModel):
 
   id: Mapped[int] = mapped_column(primary_key=True)
   code: Mapped[str] = mapped_column(String(CODE_LEN), index=True)
-  lifetime: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+  lifetime: Mapped[datetime] = mapped_column(TZDateTime)
   has_used: Mapped[bool] = mapped_column(Boolean(), default=False)
   bind_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True, default=None)
 
@@ -121,13 +146,10 @@ class InviteCode(DbBaseModel):
   @property
   def redeemable_with_reason(self) -> tuple[bool, str | None]:
     if self.has_used:
-      return (False, f"code={self} has already been used")
+      return (False, f"<{self}> has already been used.")
     lifetime = self.lifetime
-    if lifetime.tzinfo is None:
-      logger.warning("DB InviteCode: read `lifetime` doesn't contain tz info. add UTC as fallback")
-      lifetime = lifetime.replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) > lifetime:
-      return (False, f"code={self} has expired(lifetime={self.lifetime})")
+      return (False, f"<{self}> has expired.")
     return (True, None)
 
   def __str__(self) -> str:

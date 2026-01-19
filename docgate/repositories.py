@@ -87,6 +87,7 @@ def get_user(session: Session, user_id: str) -> User | None:
 
 
 def create_invite_code(session: Session, code: str, lifetime: datetime, do_commit: bool = True) -> InviteCode:
+  assert lifetime.tzinfo, f"Lifetime tzinfo is None in lifetime: {lifetime}"
   code_data = InviteCode(code=code, lifetime=lifetime, has_used=False)
   session.add(code_data)
   if do_commit:
