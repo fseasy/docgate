@@ -1,9 +1,9 @@
-import React from "react";
+import type { PropsWithChildren } from "react";
 import { SessionAuth } from "supertokens-auth-react/recipe/session";
 import { AccessDeniedScreen } from "supertokens-auth-react/recipe/session/prebuiltui";
 import { UserRoleClaim /*PermissionClaim*/ } from "supertokens-auth-react/recipe/userroles";
 
-const AdminRouteAuth = (props: React.PropsWithChildren<any>) => {
+const AdminRouteAuth = ({ children }: PropsWithChildren) => {
   return (
     <SessionAuth
       accessDeniedScreen={AccessDeniedScreen}
@@ -12,7 +12,7 @@ const AdminRouteAuth = (props: React.PropsWithChildren<any>) => {
         UserRoleClaim.validators.includes("admin"),
       ]}
     >
-      {props.children}
+      {children}
     </SessionAuth>
   );
 };

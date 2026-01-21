@@ -1,36 +1,30 @@
-import { SiteConfig } from "../../config";
-import { useEffect, useState } from "react";
-import { useGenInviteCode } from "./useGenInviteCode";
 import TopNavbar from "../../component/nav/TopNav";
+import { customizeAuthURL } from "../../supertokens/url";
 import { useClipboard } from "../../utils/frontendHooks";
+import { useGenInviteCode } from "./useGenInviteCode";
 
 export default function ManageDashboard() {
   const { result: genCodeResult, generate: genCode } = useGenInviteCode();
 
-  const [inviteCodeLink, setInviteCodeLink] = useState<string>("");
-  const [inviteCodeStr, setInviteCodeStr] = useState<string>("");
-  const [inviteCodeResponse, setInviteCodeResponse] = useState<string>("");
+  const makeInviteLink = (code: string) => customizeAuthURL({ show: "signup", queryParams: { ic: code } });
+
+  const isIdleOrLoading =
+    genCodeResult.status === "idle" ||
+    genCodeResult.status === "loading";
+
+  const inviteCodeResponse = isIdleOrLoading
+    ? ""
+    : JSON.stringify(genCodeResult, null, 2);
+
+  const inviteCodeStr =
+    genCodeResult.status === "success" ? genCodeResult.code : "";
+
+  const inviteCodeLink =
+    genCodeResult.status === "success"
+      ? makeInviteLink(genCodeResult.code)
+      : "";
+
   const { copied, copyToClipboard } = useClipboard();
-
-  const makeInviteLink = (code: string) => `${SiteConfig.websiteDomain}/auth?show=signup&ic=${code}`;
-
-  useEffect(() => {
-    if (genCodeResult.status === "idle" || genCodeResult.status === "loading") {
-      setInviteCodeStr("");
-      setInviteCodeLink("");
-      setInviteCodeResponse("");
-      return;
-    }
-    setInviteCodeResponse(JSON.stringify(genCodeResult, null, 2));
-    if (genCodeResult.status === "error") {
-      setInviteCodeStr("");
-      setInviteCodeLink("");
-      return;
-    }
-    const code = genCodeResult.code!;
-    setInviteCodeStr(code);
-    setInviteCodeLink(makeInviteLink(code));
-  }, [genCodeResult.status]);
 
   return (
     <>

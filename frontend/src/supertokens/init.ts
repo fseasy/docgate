@@ -2,17 +2,18 @@ import SuperTokens from "supertokens-auth-react";
 import EmailPassword from "supertokens-auth-react/recipe/emailpassword";
 import Session from "supertokens-auth-react/recipe/session";
 import { ZhUiTrans } from "./emailPasswordUi.zh";
+import { SiteConfig } from "../config";
 
 export function initSuperTokens() {
   SuperTokens.init({
     appInfo: {
-      appName: import.meta.env.VITE_APP_NAME,
-      apiDomain: import.meta.env.VITE_API_DOMAIN,
-      websiteDomain: import.meta.env.VITE_WEBSITE_DOMAIN,
-      apiBasePath: "/auth",
-      websiteBasePath: "/auth",
+      appName: SiteConfig.appName,
+      apiDomain: SiteConfig.apiDomain,
+      websiteDomain: SiteConfig.websiteDomain,
+      apiBasePath: SiteConfig.apiBasePath,
+      websiteBasePath: SiteConfig.websiteBasePath,
     },
-    recipeList: [cutomizedEmailPassword(), Session.init()],
+    recipeList: [customizedEmailPassword(), Session.init()],
     useShadowDom: false,
     languageTranslations: {
       translations: {
@@ -29,7 +30,7 @@ export function initSuperTokens() {
   // SuperTokens.changeLanguage("zh")
 }
 
-function cutomizedEmailPassword() {
+function customizedEmailPassword() {
   return EmailPassword.init({
     signInAndUpFeature: {
       signUpForm: {

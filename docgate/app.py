@@ -1,19 +1,20 @@
 import traceback
 from typing import Any
 
-from fastapi import Depends, FastAPI
+from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette.middleware.cors import CORSMiddleware
 from supertokens_python import get_all_cors_headers
 from supertokens_python.framework.fastapi import get_middleware
 from supertokens_python.recipe.session import SessionContainer
+from supertokens_python.recipe.session.asyncio import get_session
 from supertokens_python.recipe.session.framework.fastapi import verify_session
 from supertokens_python.recipe.userroles import UserRoleClaim
 from supertokens_python.types import User as StUser
 
 from docgate import config
-from docgate.logics import InviteCode
+from docgate.logics import InviteCode, UserPermission
 from docgate.models import Tier
 from docgate.repositories import create_invite_code, get_db_session, get_user
 from docgate.supertokens_config import StRole, init_supertokens
@@ -38,6 +39,33 @@ app.add_middleware(get_middleware())
 class StUserResult(BaseModel):
   error: str | None
   user: dict[str, Any] | None
+
+
+@app.get("/_docgate/auth_check")
+async def docgate_auth_check(request: Request, db_session: Session = Depends(get_db_session)):
+  async def _logic():
+    session = await get_session(
+      request,
+      session_required=True,
+      anti_csrf_check=False,
+    )
+    if session is None:
+      return Response(status_code=401)  # redirect to signup
+    user_id = session.get_user_id()
+    user = get_user(db_session, user_id)
+    if user is None:
+      # ! this is the system inconsistency. we just redirect to pay, once customer pay, we can insert it to our db.
+      return Response(status_code=403)  # redirect to pay
+    if not UserPermission.can_read_doc(user):
+      return Response(status_code=403)  # redirect to pay
+    # pass
+    return Response(status_code=200)
+
+  try:
+    return await _logic()
+  except Exception as e:
+    logger.exception(f"docgate-auth-check failed due to <{e}>")
+    return Response(status_code=500)
 
 
 @app.get("/get_current_supertokens_user")

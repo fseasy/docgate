@@ -1,10 +1,7 @@
-import TopNavbar  from "../../component/nav/TopNav";
 
-export default function Home() {
+export default function Banner() {
   return (
     <>
-      <TopNavbar />
-
       <div
         className='relative w-full aspect-1920/600 overflow-hidden' // 1. 替换为图片实际的宽高比
         style={{
@@ -30,4 +27,5 @@ export default function Home() {
       </div>
     </>
   );
-}
+};
+

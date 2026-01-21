@@ -19,22 +19,16 @@ logger = base_conf.LOGGER
 
 
 def init_supertokens():
-  def get_api_domain() -> str:
-    return base_conf.API_DOMAIN
-
-  def get_website_domain() -> str:
-    return base_conf.WEBSITE_DOMAIN
-
   supertokens_config = SupertokensConfig(
     connection_uri=base_conf.SUPERTOKENS_CONNECTION_URI, api_key=base_conf.SUPERTOKENS_API_KEY
   )
 
   app_info = InputAppInfo(
     app_name=base_conf.APP_NAME,
-    api_domain=get_api_domain(),
-    website_domain=get_website_domain(),
-    api_base_path="/auth",
-    website_base_path="/auth",
+    api_domain=base_conf.API_DOMAIN,
+    website_domain=base_conf.WEBSITE_DOMAIN,
+    api_base_path=base_conf.API_BASE_PATH,
+    website_base_path=base_conf.WEBSITE_BASE_PATH,
   )
 
   recipe_list = [session.init(), dashboard.init(), userroles.init(), _init_emailpassword()]

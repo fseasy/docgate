@@ -1,49 +1,46 @@
 import { useEffect, useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { redirectToAuth } from "supertokens-auth-react";
 import { signOut, useSessionContext } from "supertokens-auth-react/recipe/session";
-import { fetchSessionSupertokensUserById } from "../../utils/api";
-import { useNavigate, Link, NavLink } from "react-router-dom";
+import { ROUTES } from "../../routes";
 import type { StUser } from "../../utils/api";
+import { fetchSessionSupertokensUserById } from "../../utils/api";
 import { useIsAdmin } from "../../utils/frontendHooks";
 
 const UserAuthComponent = () => {
   const session = useSessionContext();
+  const doesSessionExist = !session.loading && session.doesSessionExist;
+
   const navigate = useNavigate();
+
   const [user, setUser] = useState<StUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [userLoading, setUserLoading] = useState(true);
+  const pageLoading = session.loading || userLoading;
+
   const adminStatus = useIsAdmin();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = !adminStatus.loading && adminStatus.isAdmin;
 
   useEffect(() => {
-    if (session.loading) {
-      setLoading(true);
-      return;
-    }
-    if (!session.doesSessionExist) {
-      setLoading(false);
+    if (!doesSessionExist) {
       setUser(null);
       return;
     }
-    const loadUser = async () => {
+    let cancelled = false;
+
+    setUserLoading(true);
+    (async () => {
       try {
         const userData = await fetchSessionSupertokensUserById();
-        setUser(userData);
+        if (!cancelled) setUser(userData);
       } catch (error) {
-        setUser(null);
         console.error("Failed to fetch user:", error);
       } finally {
-        setLoading(false);
+        if (cancelled) setUserLoading(false);
       }
-    };
+    })();
 
-    loadUser();
-  }, [session.loading]);
-
-  useEffect(() => {
-    if (adminStatus.loading) {
-      return;
-    }
-    setIsAdmin(adminStatus.isAdmin);
-  }, [adminStatus.loading]);
+    return () => { cancelled = true; };
+  }, [doesSessionExist]);
 
   async function logoutClicked() {
     await signOut();
@@ -53,12 +50,12 @@ const UserAuthComponent = () => {
 
   const SignInUpComponent = () => (
     <>
-      <Link to='/auth?show=signin' className='btn btn-ghost text-info'>
+      <a onClick={() => redirectToAuth({ show: "signin" })} className='btn btn-ghost text-info'>
         登录
-      </Link>
-      <Link to='/auth?show=signup' className='btn btn-ghost'>
+      </a>
+      <a onClick={() => redirectToAuth({ show: "signup" })} className='btn btn-ghost'>
         注册
-      </Link>
+      </a>
     </>
   );
 
@@ -74,7 +71,7 @@ const UserAuthComponent = () => {
 
       {isAdmin === true && (
         <NavLink
-          to='/manage'
+          to={ROUTES.MANAGE}
           className={({ isActive }) =>
             isActive
               ? "text-base-content font-semibold border-b-2 border-primary"
@@ -94,7 +91,7 @@ const UserAuthComponent = () => {
     </>
   );
 
-  if (loading || !user || user.emails.length === 0) {
+  if (pageLoading || !user || user.emails.length === 0) {
     return <SignInUpComponent />;
   }
 

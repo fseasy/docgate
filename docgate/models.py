@@ -103,19 +103,14 @@ class User(DbBaseModel):
     default=lambda: datetime.now(tz=timezone.utc),
     onupdate=lambda: datetime.now(tz=timezone.utc),
   )
+  tier: Mapped[Tier] = mapped_column(IntEnumDecorator(Tier))
+  """Used to decide user payment, with tier_lifetime constraints"""
+  tier_lifetime: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
 
   pay_method: Mapped[PayMethod | None] = mapped_column(IntEnumDecorator(PayMethod), nullable=True)
-  """
-  Config explain:
-  native_num=False, don't use SQL's enum; create_constraint=False, dont' generate constraints in SQL;
-  values_callable=lambda: use the value(int) instead of the name(str) of the enum
-  All is for easily extend the enum while keep it sufficient in DB and Python side.
-  """
-
+  """Both pay_method & pay_log are auxiliary fields and should not be used to determine payment status"""
   pay_log: Mapped[str] = mapped_column(Text, default="")  # log for payment (success, error, history)
   # currently it's always None because it's always lifelong
-  lifetime: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
-  tier: Mapped[Tier] = mapped_column(IntEnumDecorator(Tier))
 
   # one user may have 0/multiple invite-codes (in the future>>>). only relationship in ORM level
   invite_codes: Mapped[list["InviteCode"]] = relationship(back_populates="bind_user")
@@ -125,8 +120,9 @@ class User(DbBaseModel):
     return (
       f"User(id=[{self.id}], email=[{self.email}], created_at=[{safe_strftime(self.created_at)}]"
       f", last_active_at=[{safe_strftime(self.last_active_at)}]"
+      f", tier=[{self.tier.name})], lifetime=[{safe_strftime(self.tier_lifetime)}]"
       f", pay_method=[{safe_getattr(self.pay_method, 'name')}]"
-      f", pay_log=[{self.pay_log}], lifetime=[{safe_strftime(self.lifetime)}], tier=[{self.tier.name})]"
+      f", pay_log=[{self.pay_log}]"
     )
 
 

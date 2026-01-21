@@ -8,7 +8,7 @@ from supertokens_python.recipe.emailpassword.types import FormField
 from supertokens_python.types import User as StUser
 
 from . import config as config
-from .models import InviteCode as InviteCodeModel
+from .models import InviteCode as InviteCodeModel, Tier, User
 from .repositories import create_free_user, create_user_with_redeeming_invite_code, get_db_session_cxt, get_invite_code
 
 logger = config.LOGGER
@@ -32,6 +32,17 @@ class InviteCode(object):
     if not base:
       base = datetime.now(tz=timezone.utc)
     return base + timedelta(days=EXPIRE_DAYS)
+
+
+class UserPermission(object):
+  @staticmethod
+  def can_read_doc(user: User) -> bool:
+    if user.tier == Tier.FREE:
+      return False
+    if not user.tier_lifetime:
+      # life long
+      return True
+    return datetime.now(tz=timezone.utc) <= user.tier_lifetime
 
 
 def validate_password(value: str) -> str | None:
