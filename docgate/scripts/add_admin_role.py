@@ -2,12 +2,18 @@ import argparse
 import asyncio
 from typing import Iterable
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from docgate.models import Tier
+from docgate.repositories import async_get_user, get_db_async_session_cxt, lifespan_db
 from docgate.supertokens_config import StRole, init_supertokens
-from docgate.supertokens_utils import async_add_role2user, async_get_user_by_email
+from docgate.supertokens_utils import async_add_role2user, async_create_role, async_get_user_by_email
 
 
-async def add_admin_for_emails(emails: Iterable[str]) -> None:
+async def add_admin_for_emails(emails: Iterable[str], db_session: AsyncSession) -> None:
   init_supertokens()
+
+  await async_create_role()
 
   for email in emails:
     try:
@@ -34,17 +40,26 @@ async def add_admin_for_emails(emails: Iterable[str]) -> None:
           print(f"Email={email} User={user_id}: add role get warning/error: {result_info}")
         else:
           print(f"Email={email} User={user_id}: add role success")
+        db_user = await async_get_user(db_session, user_id)
+        if db_user is None:
+          err = f"Email={email} User={user_id}: failed to get user from self-hosted db"
+          print(err)
+          raise Exception(err)
+        db_user.tier = Tier.INTERNAL_MANAGER
+        await db_session.commit()
+
       except Exception as e:
         print(f"Failed to add admin role for user {user_id} (email={email}): {e}")
 
 
-def main():
+async def main():
   parser = argparse.ArgumentParser(description="Add admin role to SuperTokens users by email")
   parser.add_argument("-e", "--email", nargs="+", required=True, help="Email(s) to add admin role for")
   args = parser.parse_args()
 
-  asyncio.run(add_admin_for_emails(args.email))
+  async with lifespan_db(None), get_db_async_session_cxt() as session:
+    await add_admin_for_emails(args.email, session)
 
 
 if __name__ == "__main__":
-  main()
+  asyncio.run(main())

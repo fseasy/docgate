@@ -13,7 +13,7 @@ import "./App.css";
 
 const ManageDashboard = lazy(() => import("./app/manage"));
 const Dashboard = lazy(() => import("./app/dashboard"));
-
+const Purchase = lazy(() => import("./app/purchase"));
 
 function App() {
   return (
@@ -42,6 +42,14 @@ function App() {
                 <AdminRouteAuth>
                   <ManageDashboard />
                 </AdminRouteAuth>
+              }
+            />
+            <Route
+              path={ROUTES.PURCHASE}
+              element={
+                <SessionAuth>
+                  <Purchase />
+                </SessionAuth>
               }
             />
           </Routes>

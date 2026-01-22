@@ -1,3 +1,4 @@
+import typing
 from datetime import datetime, timezone
 from enum import IntEnum
 
@@ -23,19 +24,20 @@ class Tier(IntEnum):
   GOLD = 3
 
 
-def _get_sqlite_db_path() -> str:
+def _get_sqlite_db_async_path() -> str:
   from pathlib import Path
 
   _workspace_dir = Path(__file__).parent
-  p = f"sqlite:///{_workspace_dir / 'sqlite.db'}"
+  p = f"sqlite+aiosqlite:///{_workspace_dir / 'sqlite.db'}"
   return p
 
 
-async_engine = create_async_engine(_get_sqlite_db_path(), connect_args={"check_same_thread": False})
+# you can set `echo=True` for debug
+async_engine = create_async_engine(_get_sqlite_db_async_path())
+"""Async engine"""
 
-# Session maker instance
-SessionLocal = sessionmaker(engine, autocommit=False, autoflush=False)
-AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False, autoflush=False)
+AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+"""Async Session maker instance"""
 
 
 class IntEnumDecorator(TypeDecorator):
@@ -157,8 +159,16 @@ class InviteCode(DbBaseModel):
     )
 
 
-def _init_db():
-  DbBaseModel.metadata.create_all(engine)
+async def create_all_tables():
+  async with async_engine.begin() as conn:
+    await conn.run_sync(DbBaseModel.metadata.create_all)
 
 
-_init_db()  # We call init db here so it's self-contained
+async def drop_all_tables():
+  async with async_engine.begin() as conn:
+    await conn.run_sync(DbBaseModel.metadata.drop_all)
+
+
+async def dispose_engine():
+  """Call this when you need to exit the APP! or the app will hang forever!"""
+  await async_engine.dispose()

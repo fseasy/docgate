@@ -1,28 +1,38 @@
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Generator
+from typing import TYPE_CHECKING, Any, AsyncGenerator
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import InviteCode, PayMethod, SessionLocal, Tier, User
+from .models import AsyncSessionLocal, InviteCode, PayMethod, Tier, User, create_all_tables, dispose_engine
 
-
-def get_db_session() -> Generator[Session, None, None]:
-  """Create a session context. For Fastapi Depends. see: https://fastapi.xiniushu.com/uk/tutorial/sql-databases/"""
-  s = SessionLocal()
-  try:
-    yield s
-  finally:
-    s.close()
+if TYPE_CHECKING:
+  from fastapi import FastAPI
 
 
-get_db_session_cxt = contextmanager(get_db_session)
+async def get_db_async_session() -> AsyncGenerator[AsyncSession, Any]:
+  """Get a database session.
+  To be used for dependency injection.
+  copy from: https://github.com/seapagan/fastapi_async_sqlalchemy2_example/blob/main/db.py#L42
+  """
+  async with AsyncSessionLocal() as session, session.begin():
+    yield session
+
+
+get_db_async_session_cxt = asynccontextmanager(get_db_async_session)
 """Used in out-of fastapi scope or place that can't get connection level session"""
 
 
-def create_user(
-  session: Session,
+@asynccontextmanager
+async def lifespan_db(_: "FastAPI | None") -> AsyncGenerator[Any, None]:
+  await create_all_tables()  # create tables if eligible
+  yield
+  await dispose_engine()  # dispose db after app close!
+
+
+async def async_create_user(
+  session: AsyncSession,
   *,
   user_id: str,
   email: str,
@@ -30,22 +40,22 @@ def create_user(
   pay_log: str = "",
   tier_lifetime: datetime | None,
   tier: Tier,
-  do_commit: bool = True,
+  do_commit: bool = False,
 ) -> User:
   u = User(id=user_id, email=email, tier=tier, tier_lifetime=tier_lifetime, pay_method=pay_method, pay_log=pay_log)
   session.add(u)
   if do_commit:
-    session.commit()
+    await session.commit()
   return u
 
 
-def create_user_with_redeeming_invite_code(
-  session: Session, *, user_id: str, email: str, invite_code: InviteCode, do_commit: bool = True
+async def async_create_user_with_redeeming_invite_code(
+  session: AsyncSession, *, user_id: str, email: str, invite_code: InviteCode, do_commit: bool = False
 ) -> User:
   """business logic"""
   pay_log = f"Redeem invite-code({invite_code.code})"
   # X with session.begin(): use this may raise exception: A transaction is already begun on this Session.
-  user = create_user(
+  user = await async_create_user(
     session,
     user_id=user_id,
     email=email,
@@ -59,15 +69,15 @@ def create_user_with_redeeming_invite_code(
   invite_code.bind_user_id = user_id
   session.add(invite_code)
   if do_commit:
-    session.commit()
+    await session.commit()
   return user
 
 
-def create_free_user(
-  session: Session, *, user_id: str, email: str, pay_log: str = "Create without payment", do_commit: bool = True
+async def async_create_free_user(
+  session: AsyncSession, *, user_id: str, email: str, pay_log: str = "Create without payment", do_commit: bool = False
 ):
   """Business logic"""
-  user = create_user(
+  user = await async_create_user(
     session,
     user_id=user_id,
     email=email,
@@ -80,23 +90,27 @@ def create_free_user(
   return user
 
 
-def get_user(session: Session, user_id: str) -> User | None:
+async def async_get_user(session: AsyncSession, user_id: str) -> User | None:
   stmt = select(User).where(User.id == user_id)
-  u = session.scalar(stmt)
+  r = await session.execute(stmt)
+  u = r.scalar()
   return u
 
 
-def create_invite_code(session: Session, code: str, lifetime: datetime, do_commit: bool = True) -> InviteCode:
+async def async_create_invite_code(
+  session: AsyncSession, code: str, lifetime: datetime, do_commit: bool = False
+) -> InviteCode:
   assert lifetime.tzinfo, f"Lifetime tzinfo is None in lifetime: {lifetime}"
   code_data = InviteCode(code=code, lifetime=lifetime, has_used=False)
   session.add(code_data)
   if do_commit:
-    session.commit()
+    await session.commit()
   return code_data
 
 
-def get_invite_code(session: Session, code: str) -> InviteCode | None:
+async def async_get_invite_code(session: AsyncSession, code: str) -> InviteCode | None:
   # may be multiple in rare condition, get the latest one
   stmt = select(InviteCode).where(InviteCode.code == code).order_by(InviteCode.lifetime.desc())
-  code_data = session.scalars(stmt).first()
+  r = await session.execute(stmt)
+  code_data = r.scalars().first()
   return code_data

@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 from supertokens_python import get_all_cors_headers
 from supertokens_python.framework.fastapi import get_middleware
@@ -16,9 +16,9 @@ from supertokens_python.types import User as StUser
 from docgate import config
 from docgate.logics import InviteCode, UserPermission
 from docgate.models import Tier
-from docgate.repositories import create_invite_code, get_db_session, get_user
+from docgate.repositories import async_create_invite_code, async_get_user, get_db_async_session, lifespan_db
 from docgate.supertokens_config import StRole, init_supertokens
-from docgate.supertokens_utils import async_get_user
+from docgate.supertokens_utils import async_get_user as get_st_user
 
 logger = config.LOGGER
 
@@ -27,9 +27,7 @@ init_supertokens()
 
 
 logger.info("Build app")
-app = FastAPI(
-  title=f"{config.APP_NAME}-backend",
-)
+app = FastAPI(title=f"{config.APP_NAME}-backend", lifespan=lifespan_db)
 
 app.add_middleware(get_middleware())
 
@@ -42,9 +40,7 @@ class StUserResult(BaseModel):
 
 
 @app.get("/_docgate/auth_check")
-async def docgate_auth_check(request: Request, db_session: Session = Depends(get_db_session)):
-  loop = async
-
+async def docgate_auth_check(request: Request, db_session: AsyncSession = Depends(get_db_async_session)):
   async def _logic():
     session = await get_session(
       request,
@@ -54,7 +50,7 @@ async def docgate_auth_check(request: Request, db_session: Session = Depends(get
     if session is None:
       return Response(status_code=401)  # redirect to signup
     user_id = session.get_user_id()
-    user = get_user(db_session, user_id)
+    user = await async_get_user(db_session, user_id)
     if user is None:
       # ! this is the system inconsistency. we just redirect to pay, once customer pay, we can insert it to our db.
       return Response(status_code=403)  # redirect to pay
@@ -74,7 +70,7 @@ async def docgate_auth_check(request: Request, db_session: Session = Depends(get
 async def get_current_st_user(session: SessionContainer = Depends(verify_session())) -> StUserResult:
   uid = session.user_id
   try:
-    user = await async_get_user(uid)
+    user = await get_st_user(uid)
   except Exception as e:
     err = f"[api]: GetUserEmails get errors: uid={uid}, err={e}, stack={traceback.format_exc()}"
     logger.error(f"{err}")
@@ -93,7 +89,7 @@ class InviteResult(BaseModel):
 
 @app.post("/gen_invite_code")
 async def gen_invite(
-  session: SessionContainer = Depends(verify_session()), db_session: Session = Depends(get_db_session)
+  session: SessionContainer = Depends(verify_session()), db_session: AsyncSession = Depends(get_db_async_session)
 ) -> InviteResult:
   """generate invite-code, record it to table"""
 
@@ -105,7 +101,7 @@ async def gen_invite(
       return InviteResult(error=f"user [{user_id}] didn't have admin role. roles={roles}", code=None, lifetime=None)
     invite_code = InviteCode.gen_invite_code()
     lifetime = InviteCode.calc_lifetime()
-    create_invite_code(db_session, invite_code, lifetime)
+    await async_create_invite_code(db_session, invite_code, lifetime)
     return InviteResult(error=None, code=invite_code, lifetime=lifetime.strftime("%Y-%m-%d %H:%M:%S %z"))
 
   try:

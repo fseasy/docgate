@@ -3,13 +3,18 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from supertokens_python.recipe.emailpassword.types import FormField
 from supertokens_python.types import User as StUser
 
 from . import config as config
 from .models import InviteCode as InviteCodeModel, Tier, User
-from .repositories import create_free_user, create_user_with_redeeming_invite_code, get_db_session_cxt, get_invite_code
+from .repositories import (
+  async_create_free_user,
+  async_create_user_with_redeeming_invite_code,
+  async_get_invite_code,
+  get_db_async_session_cxt,
+)
 
 logger = config.LOGGER
 
@@ -81,7 +86,7 @@ class CreateUserStatus(StrEnum):
   INTERNAL_UNEXPECTED_ERROR = "Internal code unexpected failure, transaction rollback is expected."
 
 
-def create_user_after_supertokens_signup(user: StUser, form_fields: list[FormField]) -> CreateUserStatus:
+async def async_create_user_after_supertokens_signup(user: StUser, form_fields: list[FormField]) -> CreateUserStatus:
   """Create user with redeeming invite-code in our side, after supertokens' sign-up success.
   Exception: No exception, just return the status
 
@@ -89,7 +94,7 @@ def create_user_after_supertokens_signup(user: StUser, form_fields: list[FormFie
   Used in supertokens post-signup override
   """
 
-  def _logic(db_session: Session) -> CreateUserStatus:
+  async def _logic(db_session: AsyncSession) -> CreateUserStatus:
     user_email = user.emails[0]
     invite_code_field: FormField | None = None
     for f in form_fields:
@@ -97,27 +102,27 @@ def create_user_after_supertokens_signup(user: StUser, form_fields: list[FormFie
         invite_code_field = f
         break
     if invite_code_field is None:
-      db_user = create_free_user(db_session, user_id=user.id, email=user_email)
+      db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email)
       logger.warning(f"Invite-code: Form field not found! Free user [{db_user}] created.")
       return CreateUserStatus.REDEEM_FAILED_ON_NO_INVITE_CODE_IN_FORM_INPUT
     invite_code_str = invite_code_field.value.strip()
     if not invite_code_str:
-      db_user = create_free_user(db_session, user_id=user.id, email=user_email)
+      db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email)
       logger.warning(f"Invite-code: From field value is empty! Free user [{db_user}] created.")
       return CreateUserStatus.REDEEM_FAILED_ON_NO_INVITE_CODE_IN_FORM_INPUT
-    code_data = get_invite_code(db_session, invite_code_str)
+    code_data = await async_get_invite_code(db_session, invite_code_str)
     if not code_data:
       pay_log = f"RedeemInviteCode Fail: code=[{invite_code_str}] wasn't exist in DB"
-      db_user = create_free_user(db_session, user_id=user.id, email=user_email, pay_log=pay_log)
+      db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email, pay_log=pay_log)
       logger.warning(f"{pay_log}. Free user [{db_user}] created.")
       return CreateUserStatus.REDEEM_FAILED_ON_INVITE_CODE_NOT_FOUND_IN_DB
     is_redeemable, reason = code_data.redeemable_with_reason
     if not is_redeemable:
       pay_log = f"RedeemInviteCode Fail: unredeemable code=[{invite_code_str}], reason={reason}"
-      db_user = create_free_user(db_session, user_id=user.id, email=user_email, pay_log=pay_log)
+      db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email, pay_log=pay_log)
       logger.warning(f"{pay_log}. Free user [{db_user}] created.")
       return CreateUserStatus.REDEEM_FAILED_ON_INVITE_CODE_NOT_REDEEMABLE
-    db_user = create_user_with_redeeming_invite_code(
+    db_user = await async_create_user_with_redeeming_invite_code(
       db_session, user_id=user.id, email=user_email, invite_code=code_data
     )
     logger.info(f"RedeemInviteCode Success: redeem code=[{invite_code_str}]. Pay User [{db_user}] created.")
@@ -127,8 +132,8 @@ def create_user_after_supertokens_signup(user: StUser, form_fields: list[FormFie
     logger.error(f"SuperTokens user doesn't contain emails: {user.to_json()}")
     return CreateUserStatus.CREATE_USER_FAILED_ON_SUPERTOKENS_INVALID_USER_DATA
   try:
-    with get_db_session_cxt() as db_session:
-      return _logic(db_session)
+    async with get_db_async_session_cxt() as db_session:
+      return await _logic(db_session)
   except Exception as e:
     logger.error(
       f"Failed to create user with unexpected internal error, user={user.to_json()}. "

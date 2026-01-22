@@ -1,4 +1,3 @@
-import asyncio
 import traceback
 from enum import StrEnum
 from typing import Any
@@ -14,7 +13,7 @@ from supertokens_python.recipe.emailpassword.types import FormField
 from supertokens_python.types.response import GeneralErrorResponse
 
 from . import config as base_conf
-from .logics import CreateUserStatus, FormFieldId, create_user_after_supertokens_signup, validate_password
+from .logics import CreateUserStatus, FormFieldId, async_create_user_after_supertokens_signup, validate_password
 
 logger = base_conf.LOGGER
 
@@ -76,12 +75,10 @@ def _init_emailpassword():
         api_options,
         user_context,
       )
-      loop = asyncio.get_running_loop()
-
       # Post sign up response, we check if it was successful
       if isinstance(response, SignUpPostOkResult):
         user = response.user
-        status = await loop.run_in_executor(None, create_user_after_supertokens_signup, *(user, form_fields))
+        status = await async_create_user_after_supertokens_signup(user, form_fields)
         if status == CreateUserStatus.INTERNAL_UNEXPECTED_ERROR:
           # need rollback on the supertokens side!
           from .supertokens_utils import async_delete_user
