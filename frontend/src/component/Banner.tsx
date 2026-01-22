@@ -1,3 +1,4 @@
+import { SiteBanner } from "../assets/images";
 
 export default function Banner() {
   return (
@@ -5,7 +6,7 @@ export default function Banner() {
       <div
         className='relative w-full aspect-1920/600 overflow-hidden' // 1. 替换为图片实际的宽高比
         style={{
-          backgroundImage: "url('/site-banner.png')",
+          backgroundImage: SiteBanner,
           backgroundSize: "cover", // 使用 cover 确保铺满
           backgroundPosition: "center",
         }}

@@ -1,6 +1,6 @@
 {
-    "short_name": "React App",
-    "name": "Create React App Sample",
+    "short_name": "Docgate",
+    "name": "docgate: a lightweight private knowledge host app",
     "icons": [
         {
             "src": "favicon.ico",

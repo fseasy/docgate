@@ -6,6 +6,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from docgate.utils import normalize_fastapi_base_path
+
 
 class Env(StrEnum):
   DEV = "dev"
@@ -56,8 +58,10 @@ LOGGER = _build_logger(APP_NAME, logging.DEBUG if env == Env.DEV else logging.IN
 LOGGER.info(f"Loaded client and server environmental vars for ENV={env}")
 
 API_DOMAIN = os.environ["VITE_API_DOMAIN"]
-API_BASE_PATH = os.environ["VITE_API_BASE_PATH"]
+# only normalize our self one
+API_COMMON_BASE_PATH = normalize_fastapi_base_path(os.environ["VITE_API_COMMON_BASE_PATH"])
+API_AUTH_BASE_PATH = os.environ["VITE_API_AUTH_BASE_PATH"]
 WEBSITE_DOMAIN = os.environ["VITE_WEBSITE_DOMAIN"]
-WEBSITE_BASE_PATH = os.environ["VITE_WEBSITE_BASE_PATH"]
+WEBSITE_AUTH_BASE_PATH = os.environ["VITE_WEBSITE_AUTH_BASE_PATH"]
 SUPERTOKENS_CONNECTION_URI = os.environ["SUPERTOKENS_CONNECTION_URI"]
 SUPERTOKENS_API_KEY = os.environ["SUPERTOKENS_API_KEY"]

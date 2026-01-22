@@ -27,8 +27,8 @@ def init_supertokens():
     app_name=base_conf.APP_NAME,
     api_domain=base_conf.API_DOMAIN,
     website_domain=base_conf.WEBSITE_DOMAIN,
-    api_base_path=base_conf.API_BASE_PATH,
-    website_base_path=base_conf.WEBSITE_BASE_PATH,
+    api_base_path=base_conf.API_AUTH_BASE_PATH,
+    website_base_path=base_conf.WEBSITE_AUTH_BASE_PATH,
   )
 
   recipe_list = [session.init(), dashboard.init(), userroles.init(), _init_emailpassword()]

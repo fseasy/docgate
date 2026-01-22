@@ -1,8 +1,8 @@
 import SuperTokens from "supertokens-auth-react";
 import EmailPassword from "supertokens-auth-react/recipe/emailpassword";
 import Session from "supertokens-auth-react/recipe/session";
-import { ZhUiTrans } from "./emailPasswordUi.zh";
 import { SiteConfig } from "../config";
+import { ZhUiTrans } from "./emailPasswordUi.zh";
 
 export function initSuperTokens() {
   SuperTokens.init({
@@ -10,8 +10,8 @@ export function initSuperTokens() {
       appName: SiteConfig.appName,
       apiDomain: SiteConfig.apiDomain,
       websiteDomain: SiteConfig.websiteDomain,
-      apiBasePath: SiteConfig.apiBasePath,
-      websiteBasePath: SiteConfig.websiteBasePath,
+      apiBasePath: SiteConfig.apiAuthBasePath,
+      websiteBasePath: SiteConfig.websiteAuthBasePath,
     },
     recipeList: [customizedEmailPassword(), Session.init()],
     useShadowDom: false,
