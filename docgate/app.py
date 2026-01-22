@@ -43,10 +43,12 @@ class StUserResult(BaseModel):
 
 @app.get("/_docgate/auth_check")
 async def docgate_auth_check(request: Request, db_session: Session = Depends(get_db_session)):
+  loop = async
+
   async def _logic():
     session = await get_session(
       request,
-      session_required=True,
+      session_required=False,
       anti_csrf_check=False,
     )
     if session is None:

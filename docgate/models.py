@@ -3,6 +3,7 @@ from enum import IntEnum
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, TypeDecorator, create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 from .config import LOGGER as logger
@@ -22,19 +23,19 @@ class Tier(IntEnum):
   GOLD = 3
 
 
-def _create_sqlite_engine() -> Engine:
+def _get_sqlite_db_path() -> str:
   from pathlib import Path
 
   _workspace_dir = Path(__file__).parent
-  DB_PATH = f"sqlite:///{_workspace_dir / 'sqlite.db'}"
-  return create_engine(DB_PATH, connect_args={"check_same_thread": False})
+  p = f"sqlite:///{_workspace_dir / 'sqlite.db'}"
+  return p
 
 
-engine = _create_sqlite_engine()
-"""DB Engine"""
+async_engine = create_async_engine(_get_sqlite_db_path(), connect_args={"check_same_thread": False})
 
 # Session maker instance
 SessionLocal = sessionmaker(engine, autocommit=False, autoflush=False)
+AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False, autoflush=False)
 
 
 class IntEnumDecorator(TypeDecorator):

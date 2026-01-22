@@ -1,3 +1,4 @@
+import asyncio
 import traceback
 from enum import StrEnum
 from typing import Any
@@ -75,17 +76,18 @@ def _init_emailpassword():
         api_options,
         user_context,
       )
+      loop = asyncio.get_running_loop()
 
       # Post sign up response, we check if it was successful
       if isinstance(response, SignUpPostOkResult):
         user = response.user
-        status = create_user_after_supertokens_signup(user, form_fields)
+        status = await loop.run_in_executor(None, create_user_after_supertokens_signup, *(user, form_fields))
         if status == CreateUserStatus.INTERNAL_UNEXPECTED_ERROR:
           # need rollback on the supertokens side!
-          from .supertokens_utils import delete_user
+          from .supertokens_utils import async_delete_user
 
           try:
-            delete_user(user.id)
+            await async_delete_user(user.id)
           except Exception as e:
             err_str = (
               f"Supertokens: delete user failed after create-user failure. user={user.to_json()}, "

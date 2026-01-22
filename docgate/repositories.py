@@ -28,11 +28,11 @@ def create_user(
   email: str,
   pay_method: PayMethod | None,
   pay_log: str = "",
-  lifetime: datetime | None,
+  tier_lifetime: datetime | None,
   tier: Tier,
   do_commit: bool = True,
 ) -> User:
-  u = User(id=user_id, email=email, pay_method=pay_method, pay_log=pay_log, lifetime=lifetime, tier=tier)
+  u = User(id=user_id, email=email, tier=tier, tier_lifetime=tier_lifetime, pay_method=pay_method, pay_log=pay_log)
   session.add(u)
   if do_commit:
     session.commit()
@@ -49,10 +49,10 @@ def create_user_with_redeeming_invite_code(
     session,
     user_id=user_id,
     email=email,
+    tier=Tier.GOLD,
+    tier_lifetime=None,
     pay_method=PayMethod.INVITE_CODE,
     pay_log=pay_log,
-    lifetime=None,
-    tier=Tier.GOLD,
     do_commit=False,  # will do final commit
   )
   invite_code.has_used = True
@@ -71,10 +71,10 @@ def create_free_user(
     session,
     user_id=user_id,
     email=email,
+    tier=Tier.FREE,
+    tier_lifetime=None,
     pay_method=None,
     pay_log=pay_log,
-    lifetime=None,
-    tier=Tier.FREE,
     do_commit=do_commit,
   )
   return user
