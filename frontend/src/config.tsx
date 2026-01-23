@@ -8,3 +8,4 @@ export const SiteConfig = {
   websiteAuthBasePath: import.meta.env.VITE_WEBSITE_AUTH_BASE_PATH,
   websiteCommonBasePath: import.meta.env.VITE_WEBSITE_COMMON_BASE_PATH,
 };
+

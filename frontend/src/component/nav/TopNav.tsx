@@ -35,7 +35,7 @@ const UserAuthComponent = () => {
       } catch (error) {
         console.error("Failed to fetch user:", error);
       } finally {
-        if (cancelled) setUserLoading(false);
+        if (!cancelled) setUserLoading(false);
       }
     })();
 
@@ -67,7 +67,7 @@ const UserAuthComponent = () => {
 
   const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin }: HelloSignOutProps) => (
     <>
-      <span className='hidden md:inline text-white'>Hi, {userDisplayName}</span>
+      <span className='hidden md:inline text-base-content'>Hi, {userDisplayName}</span>
 
       {isAdmin === true && (
         <NavLink
@@ -108,7 +108,7 @@ function TopNavbar() {
       </div>
 
       <div className='navbar-end'>
-        <div className='flex items-center gap-3'>
+        <div className='flex items-center gap-4'>
           <UserAuthComponent />
         </div>
       </div>

@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv } from 'vite';
 
-const getWebsiteBasePath = ({ mode }: { mode: string; }) => {
+const getWebsitePath = ({ mode }: { mode: string; }) => {
   const dotEnv = loadEnv(mode, process.cwd()); // - Need manually load the env at the config stage.
   const basePath = dotEnv.VITE_WEBSITE_COMMON_BASE_PATH;
 
@@ -11,23 +11,28 @@ const getWebsiteBasePath = ({ mode }: { mode: string; }) => {
   }
 
   // Normalize: ensure leading slash and trailing slash (vite requires a trailing slash, whereas supertokens does not)
-  let normalized = basePath.trim();
-  if (!normalized.startsWith('/')) {
-    normalized = '/' + normalized;
+  let normalizedBasePath = basePath.trim();
+  if (!normalizedBasePath.startsWith('/')) {
+    normalizedBasePath = '/' + normalizedBasePath;
   }
-  if (!normalized.endsWith('/')) {
-    normalized += '/';
+  if (!normalizedBasePath.endsWith('/')) {
+    normalizedBasePath += '/';
   }
 
-  return normalized;
+  const domain = dotEnv.VITE_WEBSITE_DOMAIN;
+  const normalizedDomain = new URL(domain).host; // it only accept the host
+  return {
+    normDomain: normalizedDomain,
+    normBasePath: normalizedBasePath
+  };
 };
 
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const websiteBasePath = getWebsiteBasePath({ mode: mode });
+  const websitePath = getWebsitePath({ mode: mode });
   return {
-    base: websiteBasePath,
+    base: websitePath.normBasePath,
     plugins: [
       react(),
       tailwindcss(),
@@ -51,7 +56,9 @@ export default defineConfig(({ mode }) => {
           }
         }
       }
+    },
+    server: {
+      allowedHosts: [websitePath.normDomain],
     }
-
   };
 });

@@ -1,11 +1,12 @@
 import traceback
 from typing import Any
 
-from fastapi import APIRouter, Depends, FastAPI, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from supertokens_python.recipe.session import SessionContainer
-from supertokens_python.recipe.session.asyncio import get_session
+from supertokens_python.recipe.session.asyncio import get_session, refresh_session
 from supertokens_python.recipe.session.exceptions import TryRefreshTokenError, UnauthorisedError
 from supertokens_python.recipe.session.framework.fastapi import verify_session
 from supertokens_python.recipe.userroles import UserRoleClaim
@@ -19,7 +20,7 @@ from docgate.supertokens_utils import async_get_user as get_st_user
 # We define the routers to group api endpoints and support future expansion.
 user_router = APIRouter(prefix="/user", tags=["User"])
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
-internal_auth_router = APIRouter(prefix="/internal_auth", tags=["InternalAuth"])
+internal_auth_router = APIRouter(prefix="/internal-auth", tags=["InternalAuth"])
 
 
 logger = config.LOGGER
@@ -76,6 +77,11 @@ async def gen_invite(
 
 @internal_auth_router.get("/check")
 async def docgate_auth_check(request: Request, db_session: AsyncSession = Depends(get_db_async_session)):
+  REDIRECT_REFRESH_TOKEN_CODE = 407
+  REDIRECT_SIGNIN_CODE = 401
+  REDIRECT_PAY_CODE = 403
+  AUTH_PASS_CODE = 200
+
   async def _logic():
     try:
       session = await get_session(
@@ -84,25 +90,45 @@ async def docgate_auth_check(request: Request, db_session: AsyncSession = Depend
         anti_csrf_check=False,
       )
     except TryRefreshTokenError:
-      return Response(status_code=401)  # let the frontend sdk handle (refresh token if possible)
+      logger.exception("AuthCheck: Need to refresh session")
+      return Response(status_code=REDIRECT_REFRESH_TOKEN_CODE)
     except UnauthorisedError:
-      return Response(status_code=401)  # let the frontend sdk handle
+      logger.exception("AuthCheck: not authorized, need signin")
+      return Response(status_code=REDIRECT_SIGNIN_CODE)
     except Exception:
-      return Response(status_code=401)  # we can return 500 if aggressively. But we don't need to do this.
+      logger.exception("AuthCheck: unknown exception, goto signin")
+      # we can return 500 if aggressively, but for safety, we just redirect to signin
+      return Response(status_code=REDIRECT_SIGNIN_CODE)
     if session is None:
-      return Response(status_code=401)  # redirect to signup
+      logger.info("AuthCheck: user is None, goto signin")
+      return Response(status_code=REDIRECT_SIGNIN_CODE)  # redirect to signin
     user_id = session.get_user_id()
     user = await async_get_user(db_session, user_id)
     if user is None:
       # ! this is the system inconsistency. we just redirect to pay, once customer pay, we can insert it to our db.
-      return Response(status_code=403)  # redirect to pay
+      logger.info("AuthCheck: self-host db-user is None, goto pay")
+      return Response(status_code=REDIRECT_PAY_CODE)  # redirect to pay
     if not UserPermission.can_read_doc(user):
-      return Response(status_code=403)  # redirect to pay
+      logger.info("AuthCheck: all ok, but user is required to pay")
+      return Response(status_code=REDIRECT_PAY_CODE)  # redirect to pay
     # pass
-    return Response(status_code=200)
+    logger.info(f"AuthCheck: pass for uid=[{user_id}]")
+    return Response(status_code=AUTH_PASS_CODE)
 
   try:
     return await _logic()
   except Exception as e:
-    logger.exception(f"docgate-auth-check failed due to <{e}>")
+    logger.exception(f"AuthCheck: failed due to <{e}>")
     return Response(status_code=500)
+
+
+@internal_auth_router.get("refresh-session-or-signin")
+async def refresh_session_or_signin(request: Request):
+  redirect_url = request.query_params.get("redirectToPath") or "/"
+  try:
+    await refresh_session(request)
+    logger.info(f"refresh-session: Successfully refresh session, redirect to {redirect_url}")
+    return RedirectResponse(url=redirect_url, status_code=302)
+  except Exception as e:
+    logger.exception(f"refresh-session: Failed to refresh, error={e}")
+    return RedirectResponse(url=config.get_st_auth_page_full_url(show="signin", redirect=src), status_code=302)

@@ -1,6 +1,6 @@
 import TopNavbar from "../../component/nav/TopNav";
 import { customizeAuthURL } from "../../supertokens/url";
-import { useClipboard } from "../../utils/frontendHooks";
+import { useClipboard, type CopyStatus } from "../../utils/frontendHooks";
 import { useGenInviteCode } from "./useGenInviteCode";
 
 export default function ManageDashboard() {
@@ -24,7 +24,13 @@ export default function ManageDashboard() {
       ? makeInviteLink(genCodeResult.code)
       : "";
 
-  const { copied, copyToClipboard } = useClipboard();
+  const { copyStatus, copyToClipboard } = useClipboard();
+
+  const copyStatusText: Record<CopyStatus, string> = {
+    idle: "复制链接",
+    success: "已复制 ✓",
+    fail: "复制失败 x"
+  };
 
   return (
     <>
@@ -53,7 +59,7 @@ export default function ManageDashboard() {
                   disabled={genCodeResult.status != "success"}
                   onClick={() => copyToClipboard(inviteCodeLink)}
                 >
-                  {copied ? "已复制 ✓" : "复制链接"}
+                  {copyStatusText[copyStatus]}
                 </button>
               </div>
 

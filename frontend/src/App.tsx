@@ -14,6 +14,7 @@ import "./App.css";
 const ManageDashboard = lazy(() => import("./app/manage"));
 const Dashboard = lazy(() => import("./app/dashboard"));
 const Purchase = lazy(() => import("./app/purchase"));
+const GoDocs = lazy(() => import("./app/go-docs"));
 
 function App() {
   return (
@@ -50,6 +51,12 @@ function App() {
                 <SessionAuth>
                   <Purchase />
                 </SessionAuth>
+              }
+            />
+            <Route
+              path={ROUTES.INDEX_PROXY}
+              element={
+                <GoDocs />
               }
             />
           </Routes>

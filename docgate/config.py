@@ -3,6 +3,7 @@ import os
 import sys
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 
@@ -65,3 +66,13 @@ WEBSITE_DOMAIN = os.environ["VITE_WEBSITE_DOMAIN"]
 WEBSITE_AUTH_BASE_PATH = os.environ["VITE_WEBSITE_AUTH_BASE_PATH"]
 SUPERTOKENS_CONNECTION_URI = os.environ["SUPERTOKENS_CONNECTION_URI"]
 SUPERTOKENS_API_KEY = os.environ["SUPERTOKENS_API_KEY"]
+
+
+def get_st_auth_page_full_url(show: Literal["signin", "signup"], redirect: str | None) -> str:
+  from yarl import URL
+
+  u = URL(WEBSITE_DOMAIN) / WEBSITE_AUTH_BASE_PATH
+  u = u.with_query({"show": show})
+  if redirect:
+    u = u.with_query({"redirectToPath": redirect})
+  return str(u)
