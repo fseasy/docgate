@@ -14,7 +14,7 @@ import "./App.css";
 const ManageDashboard = lazy(() => import("./app/manage"));
 const Dashboard = lazy(() => import("./app/dashboard"));
 const Purchase = lazy(() => import("./app/purchase"));
-const GoDocs = lazy(() => import("./app/go-docs"));
+const GoDocs = lazy(() => import("./app/jump-out-spa"));
 
 function App() {
   return (
@@ -54,7 +54,7 @@ function App() {
               }
             />
             <Route
-              path={ROUTES.INDEX_PROXY}
+              path={ROUTES.JUMP_OUT_REDIRECT}
               element={
                 <GoDocs />
               }

@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { genWebsiteFullURL } from "../../routes";
+import { JumpOutSPARouteLogic } from "../../routes";
 
-export default function GoDocs() {
+export default function JumpOutSPA() {
+  const redirectURL = JumpOutSPARouteLogic.extractRedirectURLAndUnquote(window.location.href);
   const from = window.location.pathname;
-  const rootURL = genWebsiteFullURL({ basePath: "/", queryParams: { from: from } });
+  const rootURL = redirectURL || genWebsiteFullURL({ basePath: "/", queryParams: { from: from } });
   useEffect(() => {
     window.location.replace(rootURL);
   }, []);

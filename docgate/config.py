@@ -1,31 +1,18 @@
 import logging
 import os
-import sys
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
 
+from docgate.log_builder import build_logger
 from docgate.utils import normalize_fastapi_base_path
 
 
 class Env(StrEnum):
   DEV = "dev"
   PROD = "prod"
-
-
-def _build_logger(name: str, level: int):
-  logger = logging.getLogger(name)
-
-  streamHandler = logging.StreamHandler(stream=sys.stderr)
-  fmt = logging.Formatter("%(asctime)s/%(name)s/%(levelname)s/%(filename)s:%(lineno)d> %(message)s")
-  streamHandler.setFormatter(fmt)
-  streamHandler.setLevel(level)
-  logger.addHandler(streamHandler)
-  logger.setLevel(level)
-
-  return logger
 
 
 _env_str = os.getenv("env") or os.getenv("ENV")
@@ -54,7 +41,7 @@ else:
 
 APP_NAME = os.environ["VITE_APP_NAME"]
 
-LOGGER = _build_logger(APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO)
+LOGGER = build_logger(APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO)
 
 LOGGER.info(f"Loaded client and server environmental vars for ENV={env}")
 
@@ -71,8 +58,10 @@ SUPERTOKENS_API_KEY = os.environ["SUPERTOKENS_API_KEY"]
 def get_st_auth_page_full_url(show: Literal["signin", "signup"], redirect: str | None) -> str:
   from yarl import URL
 
-  u = URL(WEBSITE_DOMAIN) / WEBSITE_AUTH_BASE_PATH
-  u = u.with_query({"show": show})
+  no_leading_slash_auth_base = WEBSITE_AUTH_BASE_PATH.lstrip("/")
+  u = URL(WEBSITE_DOMAIN) / no_leading_slash_auth_base
+  q = {"show": show}
   if redirect:
-    u = u.with_query({"redirectToPath": redirect})
+    q["redirectToPath"] = redirect
+  u = u.with_query(q)
   return str(u)

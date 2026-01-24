@@ -1,13 +1,10 @@
-import typing
 from datetime import datetime, timezone
 from enum import IntEnum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, TypeDecorator, create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, TypeDecorator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from .config import LOGGER as logger
 from .utils import safe_getattr, safe_strftime
 
 

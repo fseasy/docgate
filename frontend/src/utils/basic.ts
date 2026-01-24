@@ -68,3 +68,19 @@ export function normalizePath(p: string): string {
 
   return result;
 }
+
+/***
+ * Extract the path part from the unnormalized URL string.
+ * 
+ * @example
+ * http://abc.com/def/ccc/?dd => /def/ccc/
+ * http://abc.com/def/ccc?dd => /def/ccc [NOTE: no normalizing is called.]
+ * /def/ccc/?dd => /def/ccc/
+ */
+export function extractURLPathname(URLStr: string): string {
+  try {
+    return new URL(URLStr).pathname; // full url
+  } catch {
+    return URLStr.split(/[?#]/)[0]; // path 
+  }
+}

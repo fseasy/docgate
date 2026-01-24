@@ -1,8 +1,10 @@
-import SuperTokens from "supertokens-auth-react";
+import SuperTokens, { } from "supertokens-auth-react";
 import EmailPassword from "supertokens-auth-react/recipe/emailpassword";
 import Session from "supertokens-auth-react/recipe/session";
 import { SiteConfig } from "../config";
 import { ZhUiTrans } from "./emailPasswordUi.zh";
+import { ROUTES, JumpOutSPARouteLogic } from "../routes";
+import { extractURLPathname, normalizePath } from "../utils/basic";
 
 export function initSuperTokens() {
   SuperTokens.init({
@@ -21,6 +23,23 @@ export function initSuperTokens() {
       },
       defaultLanguage: "zh",
     },
+    getRedirectionURL: async (context) => {
+      if (context.action === "SUCCESS") {
+        const givenQuotedPath = context.redirectToPath;
+        if (givenQuotedPath !== undefined) {
+          // decide path target: SPA or static?
+          const routeKey = getCorrespondingSPARoute(givenQuotedPath);
+          if (routeKey === null) {
+            // static! Let's proxy it to SPA's index4redirect page
+            return JumpOutSPARouteLogic.genRedirectRelativeURL(givenQuotedPath);
+          }
+          // still in SPO, directly return
+          return givenQuotedPath;
+        }
+      }
+      // nothing. go to the jump out quote and redirect to website level root.
+      return JumpOutSPARouteLogic.genRedirectRelativeURL("/");
+    }
   });
 
   // SuperTokens.loadTranslation({
@@ -88,3 +107,15 @@ function customizedEmailPassword() {
     },
   });
 }
+
+
+const getCorrespondingSPARoute = (pathOrURL: string): keyof typeof ROUTES | null => {
+  // NOTE: we don't consider cross-domain route in current situation.
+  const exactPath = normalizePath(extractURLPathname(pathOrURL)); // normalize here due to ROUTES are normalized.
+  for (const [key, value] of Object.entries(ROUTES)) {
+    if (exactPath === value) {
+      return key as keyof typeof ROUTES;
+    }
+  }
+  return null;
+};

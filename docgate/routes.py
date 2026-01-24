@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from supertokens_python.recipe.session import SessionContainer
 from supertokens_python.recipe.session.asyncio import get_session, refresh_session
-from supertokens_python.recipe.session.exceptions import TryRefreshTokenError, UnauthorisedError
 from supertokens_python.recipe.session.framework.fastapi import verify_session
 from supertokens_python.recipe.userroles import UserRoleClaim
 
@@ -77,8 +76,7 @@ async def gen_invite(
 
 @internal_auth_router.get("/check")
 async def docgate_auth_check(request: Request, db_session: AsyncSession = Depends(get_db_async_session)):
-  REDIRECT_REFRESH_TOKEN_CODE = 407
-  REDIRECT_SIGNIN_CODE = 401
+  REDIRECT_SESSION_HANDLE_CODE = 401
   REDIRECT_PAY_CODE = 403
   AUTH_PASS_CODE = 200
 
@@ -89,19 +87,12 @@ async def docgate_auth_check(request: Request, db_session: AsyncSession = Depend
         session_required=True,
         anti_csrf_check=False,
       )
-    except TryRefreshTokenError:
-      logger.exception("AuthCheck: Need to refresh session")
-      return Response(status_code=REDIRECT_REFRESH_TOKEN_CODE)
-    except UnauthorisedError:
-      logger.exception("AuthCheck: not authorized, need signin")
-      return Response(status_code=REDIRECT_SIGNIN_CODE)
-    except Exception:
-      logger.exception("AuthCheck: unknown exception, goto signin")
-      # we can return 500 if aggressively, but for safety, we just redirect to signin
-      return Response(status_code=REDIRECT_SIGNIN_CODE)
-    if session is None:
-      logger.info("AuthCheck: user is None, goto signin")
-      return Response(status_code=REDIRECT_SIGNIN_CODE)  # redirect to signin
+      assert session is not None, "`get-session` ok while session result is None"
+    except Exception as e:
+      # For all session issue, we give an unified code so that nginx can redirect to an dedicated api
+      # => `refresh-session-or-signin`
+      logger.info(f"AuthCheck: get exception of [{e}], redirect to session handle")
+      return Response(status_code=REDIRECT_SESSION_HANDLE_CODE)
     user_id = session.get_user_id()
     user = await async_get_user(db_session, user_id)
     if user is None:
@@ -122,13 +113,24 @@ async def docgate_auth_check(request: Request, db_session: AsyncSession = Depend
     return Response(status_code=500)
 
 
-@internal_auth_router.get("refresh-session-or-signin")
+@internal_auth_router.get("/refresh-session-or-signin")
 async def refresh_session_or_signin(request: Request):
-  redirect_url = request.query_params.get("redirectToPath") or "/"
+  def _hacking_get_redirect_url():
+    """Nginx can only give unquoted redirect url. If we use the request.query_params to get, it may be truncated."""
+    DEFAULT_REDIRECT = "/"
+    SIG = "s="
+    raw_query = request.url.query
+    pos = raw_query.lstrip().find(SIG)
+    if pos == -1:
+      return DEFAULT_REDIRECT
+    return raw_query[pos + len(SIG) :]
+
+  redirect_url = _hacking_get_redirect_url()
+  print(">>>>>>> REDIRECT path: ", redirect_url)
   try:
     await refresh_session(request)
     logger.info(f"refresh-session: Successfully refresh session, redirect to {redirect_url}")
     return RedirectResponse(url=redirect_url, status_code=302)
   except Exception as e:
     logger.exception(f"refresh-session: Failed to refresh, error={e}")
-    return RedirectResponse(url=config.get_st_auth_page_full_url(show="signin", redirect=src), status_code=302)
+    return RedirectResponse(url=config.get_st_auth_page_full_url(show="signin", redirect=redirect_url), status_code=302)

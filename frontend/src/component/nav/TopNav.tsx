@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { redirectToAuth } from "supertokens-auth-react";
 import { signOut, useSessionContext } from "supertokens-auth-react/recipe/session";
-import { ROUTES } from "../../routes";
+import { JumpOutSPARouteLogic, ROUTES } from "../../routes";
 import type { StUser } from "../../utils/api";
 import { fetchSessionSupertokensUserById } from "../../utils/api";
 import { useIsAdmin } from "../../utils/frontendHooks";
@@ -45,7 +45,7 @@ const UserAuthComponent = () => {
   async function logoutClicked() {
     await signOut();
     setUser(null); // ! very important. to sync the nav bar.
-    navigate("/");
+    navigate(JumpOutSPARouteLogic.genRedirectRelativeURL("/")); // Jump Out SPA for root!
   }
 
   const SignInUpComponent = () => (

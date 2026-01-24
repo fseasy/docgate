@@ -7,7 +7,8 @@ export const ROUTES = {
   DASHBOARD: normalizePath(`/${basePath}/dashboard`),
   MANAGE: normalizePath(`/${basePath}/manage`),
   PURCHASE: normalizePath(`/${basePath}/purchase`),
-  INDEX_PROXY: '/', // A proxy from react-ts project => static docs
+  // A redirect proxy from react-ts project => static docs by refresh window(jump out SPA)
+  JUMP_OUT_REDIRECT: normalizePath(`/${basePath}/jo`),
 };
 
 
@@ -48,4 +49,31 @@ export function genWebsiteFullURL(options: {
     }
   }
   return url.toString();
+}
+
+
+export class JumpOutSPARouteLogic {
+  static readonly REDIRECT_RELATIVE_URL_PREFIX = `${ROUTES.JUMP_OUT_REDIRECT}?s=`;
+
+  static genRedirectRelativeURL(quotedRedirectURL: string) {
+    return `${JumpOutSPARouteLogic.REDIRECT_RELATIVE_URL_PREFIX}${quotedRedirectURL}`;
+  }
+
+  static extractRedirectURLAndUnquote(s: string) {
+    // manually split string, instead of using URLSearchParams
+    // in case the original redirect url isn't quoted properly.
+
+    const qIndex = s.indexOf(JumpOutSPARouteLogic.REDIRECT_RELATIVE_URL_PREFIX);
+    if (qIndex == -1) {
+      return null;
+    }
+    const vIndex = qIndex + JumpOutSPARouteLogic.REDIRECT_RELATIVE_URL_PREFIX.length;
+    const quotedV = s.slice(vIndex);
+    try {
+      return decodeURIComponent(quotedV);
+    } catch (error) {
+      console.error("JumpOutSPARouteLogic: failed to decode quoted url: ", quotedV, "error=", error, ", return raw");
+      return quotedV;
+    }
+  }
 }
