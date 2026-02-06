@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Session from "supertokens-auth-react/recipe/session";
 import { UserRoleClaim } from "supertokens-auth-react/recipe/userroles";
+import { useNavigate } from "react-router-dom";
+
 
 type AdminStatus = { loading: true; } | { loading: false; isAdmin: boolean; };
 
@@ -38,4 +40,14 @@ export const useClipboard = (options: UseClipboardOptions = {}) => {
   };
 
   return { copyStatus, copyToClipboard };
+};
+
+/*****
+ * Used for dev, export the navigator to console.
+ */
+export const devUseConsoleNavigate = () => {
+  const navigate = useNavigate();
+  useEffect(() => {
+    (window as any).navigate = navigate;
+  }, [navigate]);
 };

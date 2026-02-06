@@ -38,6 +38,8 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "alembic>=1.18.3",
+    "psycopg2-binary>=2.9.11",
     "ruff>=0.14.13",
 ]
 

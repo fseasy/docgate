@@ -5,6 +5,8 @@ import { SiteConfig } from "../config";
 import { ZhUiTrans } from "./emailPasswordUi.zh";
 import { ROUTES, JumpOutSPARouteLogic } from "../routes";
 import { extractURLPathname, normalizePath } from "../utils/basic";
+import EmailVerification from "supertokens-auth-react/recipe/emailverification";
+
 
 export function initSuperTokens() {
   SuperTokens.init({
@@ -15,7 +17,12 @@ export function initSuperTokens() {
       apiBasePath: SiteConfig.apiAuthBasePath,
       websiteBasePath: SiteConfig.websiteAuthBasePath,
     },
-    recipeList: [customizedEmailPassword(), Session.init()],
+    style: customizeStyle(),
+    recipeList: [
+      EmailVerification.init({ mode: "REQUIRED" }),
+      customizedEmailPassword(),
+      Session.init(),
+    ],
     useShadowDom: false,
     languageTranslations: {
       translations: {
@@ -37,7 +44,7 @@ export function initSuperTokens() {
           return givenQuotedPath;
         }
       }
-      // nothing. go to the jump out quote and redirect to website level root.
+      // Fail or no redirect Path. go to the jump out quote and redirect to website level root.
       return JumpOutSPARouteLogic.genRedirectRelativeURL("/");
     }
   });
@@ -118,4 +125,25 @@ const getCorrespondingSPARoute = (pathOrURL: string): keyof typeof ROUTES | null
     }
   }
   return null;
+};
+
+const customizeStyle = () => {
+  return `
+    @media (prefers-color-scheme: dark) {
+        [data-supertokens~=container] {
+          --palette-background: 51, 51, 51;
+          --palette-inputBackground: 41, 41, 41;
+          --palette-inputBorder: 41, 41, 41;
+          --palette-textTitle: 255, 255, 255;
+          --palette-textLabel: 255, 255, 255;
+          --palette-textPrimary: 255, 255, 255;
+          --palette-error: 173, 46, 46;
+          --palette-textInput: 169, 169, 169;
+          --palette-textLink: 114,114,114;
+          --palette-textGray: 158, 158, 158;
+          --palette-superTokensBrandingBackground: var(--palette-inputBackground);
+          --palette-superTokensBrandingText: var(--palette-textInput);
+        }
+    }
+  `;
 };

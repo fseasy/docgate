@@ -51,10 +51,18 @@ export function genWebsiteFullURL(options: {
   return url.toString();
 }
 
-
+/******
+ * Used to Jump out the SPA site (let the Nginx to re-decide the actual source)
+ */
 export class JumpOutSPARouteLogic {
   static readonly REDIRECT_RELATIVE_URL_PREFIX = `${ROUTES.JUMP_OUT_REDIRECT}?s=`;
 
+  /***
+   * Generate redirect relative (not targeted for full href) url.
+   * @param quotedRedirectURL quoted relative url. 
+   *                          BUT IN FACT you can just set any value here because 
+   *                          it can handle this condition.
+   */
   static genRedirectRelativeURL(quotedRedirectURL: string) {
     return `${JumpOutSPARouteLogic.REDIRECT_RELATIVE_URL_PREFIX}${quotedRedirectURL}`;
   }
@@ -76,4 +84,14 @@ export class JumpOutSPARouteLogic {
       return quotedV;
     }
   }
+}
+
+/***
+ * Check if pathname startswith basePath. 
+ * useful when redirect on unknown url.
+ */
+export function isPathPrefixBelongsToSPA(pathname: string): boolean {
+  const trimSlashBase = basePath.replace(/^\/+/, "");
+  const trimSlashPath = pathname.replace(/^\/+/, "");
+  return trimSlashPath.startsWith(trimSlashBase);
 }

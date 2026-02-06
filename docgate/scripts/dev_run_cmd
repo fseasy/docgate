@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# 检查是否至少有一个命令行参数
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <command> [args...]"
+    exit 1
+fi
+
+# 添加前缀 ENV=dev uv run
+CMD="$@"
+
+# 执行命令
+echo "Executing in dev with uv: $CMD"
+ENV=dev uv run $CMD

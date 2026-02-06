@@ -5,6 +5,8 @@ import { SuperTokensWrapper } from "supertokens-auth-react";
 import { EmailPasswordPreBuiltUI } from "supertokens-auth-react/recipe/emailpassword/prebuiltui";
 import { SessionAuth } from "supertokens-auth-react/recipe/session";
 import { getSuperTokensRoutesForReactRouterDom } from "supertokens-auth-react/ui";
+import { EmailVerificationPreBuiltUI } from "supertokens-auth-react/recipe/emailverification/prebuiltui";
+
 
 import { ROUTES } from "./routes";
 import AdminRouteAuth from "./supertokens/RouteAuth";
@@ -15,6 +17,7 @@ const ManageDashboard = lazy(() => import("./app/manage"));
 const Dashboard = lazy(() => import("./app/dashboard"));
 const Purchase = lazy(() => import("./app/purchase"));
 const GoDocs = lazy(() => import("./app/jump-out-spa"));
+const NotFoundPage = lazy(() => import("./app/not-found-page"));
 
 function App() {
   return (
@@ -23,7 +26,10 @@ function App() {
         <Suspense fallback={null}>
           <Routes>
             {/* This shows the login UI on "websiteBasePath" route */}
-            {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}
+            {getSuperTokensRoutesForReactRouterDom(
+              reactRouterDom,
+              [EmailPasswordPreBuiltUI, EmailVerificationPreBuiltUI]
+            )}
 
             {/* This protects the "/dashboard" route so that it shows
                 <Dashboard /> only if the user is logged in.
@@ -57,6 +63,13 @@ function App() {
               path={ROUTES.JUMP_OUT_REDIRECT}
               element={
                 <GoDocs />
+              }
+            />
+            {/* catch all the others unknown path */}
+            <Route
+              path="*"
+              element={
+                <NotFoundPage />
               }
             />
           </Routes>

@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 
 from supertokens_python import InputAppInfo, SupertokensConfig, init
-from supertokens_python.recipe import dashboard, emailpassword, session, userroles
+from supertokens_python.recipe import dashboard, emailpassword, session, userroles, emailverification
 from supertokens_python.recipe.emailpassword.interfaces import (
   APIInterface,
   APIOptions,
@@ -31,7 +31,13 @@ def init_supertokens():
     website_base_path=base_conf.WEBSITE_AUTH_BASE_PATH,
   )
 
-  recipe_list = [session.init(), dashboard.init(), userroles.init(), _init_emailpassword()]
+  recipe_list = [
+    emailverification.init(mode="REQUIRED"),
+    session.init(),
+    dashboard.init(),
+    userroles.init(),
+    _init_emailpassword(),
+  ]
 
   logger.info("SuperTokens: Init supertokens")
   init(

@@ -1,3 +1,37 @@
+## 26.02.06
+
+### Datetime 迁移 supabase 处理
+
+原来 impl = Datetime 建立的是无时区字段，但数据是有时区的，在 postgresql 里报错。
+
+确实是自己写错了。应该写入都是无时区数据才对！
+
+### React SPA 404 逻辑
+
+1. 如果属于自己的资源（前缀满足），但走到了 404，说明无效路径，直接去 dashboard
+2. 否则，可能属于其他资源，让 Nginx 来处理它—调用 window.location.href 赋值
+
+### 概念学习
+
+`{}` 与  `< />` 区别：前者是渲染变量；后者是渲染组件。
+
+React 组件：返回 JSX 的函数或者类。
+
+`return (<> </>)` 中 `<></>` 的意义：一个 JSX return 只能返回 1 个节点。
+你也可以用`<div>` 来包裹多个节点，但是如果你不想包裹，就用`<></>`.
+
+### alembic 迁移数据库
+
+why：之前 invite-code 里有一个 bind_user_id 外链到 user 里的；现在我在做一个删除 user 的脚本；
+删除后，其关联的 invite-code 的 bind_user_id 需要被设置为 null.
+
+这个可以通过 foreignkey 的设置，让 db  自己来做。但是这需要改 schema. 
+
+Sqlalchemy 下，就是用 alembic 这个工具（也是 sqlalchemy 下面的工具）；有一个 autogenerate 参数，
+针对 foreignkey 的修改可以自动支持—太牛了！
+
+迁移成功。不过我看它往 db 里写了一个 alembic_version 这个表… 好吧，本来也没啥。但是我这个是 dev 和 prod 共用的，不知道后续有没有问题。
+
 ## 26.01.24
 
 结论：

@@ -97,6 +97,14 @@ async def async_get_user(session: AsyncSession, user_id: str) -> User | None:
   return u
 
 
+async def async_delete_user(session: AsyncSession, user_id: str) -> str | None:
+  """Return error string on failure, else return None. Exception wont't be catch."""
+  u = await async_get_user(session, user_id)
+  if not u:
+    return f"Delete user(id={user_id}) failed due to it doesn't exist in our db"
+  await session.delete(u)  # will unbind invite-codes user id.
+
+
 async def async_create_invite_code(
   session: AsyncSession, code: str, lifetime: datetime, do_commit: bool = False
 ) -> InviteCode:
