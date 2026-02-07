@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ContentPageLayout from "../../component/contentPageLayout";
+import ContentPageLayout from "../../component/ContentPageLayout";
 import { isPathPrefixBelongsToSPA, JumpOutSPARouteLogic, ROUTES } from "../../routes";
 
 export default function NotFoundPage() {

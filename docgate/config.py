@@ -41,6 +41,7 @@ else:
 
 
 APP_NAME = os.environ["VITE_APP_NAME"]
+APP_LOCALE_NAME = os.environ["VITE_APP_LOCALE_NAME"]
 
 LOGGER = build_logger(APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO)
 
@@ -58,13 +59,21 @@ SUPERTOKENS_API_KEY = os.environ["SUPERTOKENS_API_KEY"]
 _SupabaseConfT = namedtuple("_SupabaseConfT", ["host", "port", "user", "passwd", "dbname"])
 SUPABASE_CONF = _SupabaseConfT(
   host=os.environ["SUPABASE_HOST"],
-  port=os.environ["SUPABASE_PORT"],
+  port=int(os.environ["SUPABASE_PORT"]),
   user=os.environ["SUPABASE_USER"],
   passwd=os.environ["SUPABASE_PASSWD"],
   dbname=os.environ["SUPABASE_DBNAME"],
 )
 
-_SMTPConf = namedtuple("_SMTPConf", ["host", "port", "account_email", "acount_name", "account_password", "secure"])
+_SMTPConf = namedtuple("_SMTPConf", ["host", "port", "account_email", "account_name", "account_password", "secure"])
+SMTP_CONF = _SMTPConf(
+  host=os.environ["SMTP_HOST"],
+  port=os.environ["SMTP_PORT"],
+  account_email=os.environ["SMTP_ACCOUNT_EMAIL"],
+  account_name=APP_LOCALE_NAME,
+  account_password=os.environ["SMTP_ACCOUNT_PASSWD"],
+  secure=os.environ["SMTP_SECURE"].lower() == "true",
+)
 
 
 def get_st_auth_page_full_url(show: Literal["signin", "signup"], redirect: str | None) -> str:

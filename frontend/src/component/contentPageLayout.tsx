@@ -13,9 +13,8 @@ export default function ContentPageLayout({ children }: LayoutProps) {
       <TopNavbar />
 
       {/* 主内容区 */}
-      <div className='max-w-3xl mx-auto p-6'>
+      <div className='container sm:p-6 sm:w-3xl sm:mx-auto'>
         {children}
-
       </div>
     </div>
   );

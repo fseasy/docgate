@@ -7,7 +7,6 @@ import { SessionAuth } from "supertokens-auth-react/recipe/session";
 import { getSuperTokensRoutesForReactRouterDom } from "supertokens-auth-react/ui";
 import { EmailVerificationPreBuiltUI } from "supertokens-auth-react/recipe/emailverification/prebuiltui";
 
-
 import { ROUTES } from "./routes";
 import AdminRouteAuth from "./supertokens/RouteAuth";
 
@@ -75,7 +74,7 @@ function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
-    </SuperTokensWrapper>
+    </SuperTokensWrapper >
   );
 }
 

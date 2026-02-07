@@ -45,6 +45,21 @@ async def get_current_st_user_info(session: SessionContainer = Depends(verify_se
   return StUserResult(error=None, user=user.to_json())
 
 
+@user_router.get("/bind-invite-code")
+async def user_bind_invite_code(session: SessionContainer = Depends(verify_session())) -> StUserResult:
+  uid = session.user_id
+  try:
+    user = await get_st_user(uid)
+  except Exception as e:
+    err = f"[api]: GetUserEmails get errors: uid={uid}, err={e}, stack={traceback.format_exc()}"
+    logger.error(f"{err}")
+    return StUserResult(error=err, user=None)
+  if not user:
+    logger.info(f"[api]: GetUserEmails get None user, uid={uid}")
+    return StUserResult(error=None, user=None)
+  return StUserResult(error=None, user=user.to_json())
+
+
 class InviteResult(BaseModel):
   error: str | None
   code: str | None

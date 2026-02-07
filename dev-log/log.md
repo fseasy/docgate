@@ -1,3 +1,56 @@
+## 26.02.07
+
+### Customize supertokens form submit button
+
+现在登录、注册时间太长，默认的按钮样式就是增加 `...`. 看起来页面像卡住了，所以想把它变成 spinner 或者动态的 `...`.
+
+搞了一下午，正常是走 override component. 但是文档看得不是很懂，搞了半天其实都没有覆盖到。
+然后 ChatGPT 不太靠谱，方法不对。在我不断给相关代码后，还是给出了一些可行的方案，
+然而我放进去就是不起效。
+
+我就去问了 Gemini, 它的 override 方法也是错的。但是，它给了一个基于 css 的方案… 
+是在 :disable 条件下做操作：
+把原来的按钮文本给隐藏了，然后添加了一个 after 伪类，做了一个 ... 的 animates. 
+我不认可这个方案，因为我认为它不是通过 :disable 添加的 ..., 而是通过内部的 isLoading 来添加的。
+但是它说，在 isLoading = true 时，会设置 :disable 属性！
+可以啊， 我试着贴进去看了下，哇塞，怎么这么丝滑…
+
+服了 Gemini 了！
+
+再看 override 的问题—吃饭的时候，我想肯定是自己作用域写错了，贴给 ChatGPT, 立刻就找到了问题。
+然后 override 测试生效了，但没有再测试给我的替换 button 的方案了—既然 css 已经解决了，而且是对所有的 button 都生效的，还搞 override 干啥—这个 override 还得每个 form 对应去做呢。
+
+总结下：
+
+1. 先问 Gemini 吧，save life
+2. 自己应该早点想到是作用域的问题，折腾半天，连 override 都没有入门，哎，确实能力不足。
+
+### React Provider: 学习下 supertokens 是如何支持 override 的，之前为啥 override 没有生效
+
+> from chatgpt
+
+在 React（TS 只是类型系统，不改变 React 本身）里：
+
+Provider 是 React Context API 的一种用法
+
+它本质上就是一个组件，用来给它内部的子组件提供“共享数据/功能”
+
+比如：
+
+```tsx
+<MyContext.Provider value={{ foo: 123 }}>
+  <ChildComponent />
+</MyContext.Provider>
+```
+
+ChildComponent 内部就可以通过 useContext(MyContext) 拿到 value
+
+特点：
+
+Provider 必须包住需要用到这个上下文的组件
+
+子组件自动能拿到 Provider 提供的值
+
 ## 26.02.06
 
 ### Datetime 迁移 supabase 处理

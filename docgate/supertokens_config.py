@@ -3,7 +3,8 @@ from enum import StrEnum
 from typing import Any
 
 from supertokens_python import InputAppInfo, SupertokensConfig, init
-from supertokens_python.recipe import dashboard, emailpassword, session, userroles, emailverification
+from supertokens_python.ingredients.emaildelivery.types import EmailDeliveryConfig, SMTPSettings, SMTPSettingsFrom
+from supertokens_python.recipe import dashboard, emailpassword, emailverification, session, userroles
 from supertokens_python.recipe.emailpassword.interfaces import (
   APIInterface,
   APIOptions,
@@ -32,7 +33,10 @@ def init_supertokens():
   )
 
   recipe_list = [
-    emailverification.init(mode="REQUIRED"),
+    emailverification.init(
+      mode="REQUIRED",
+      email_delivery=EmailDeliveryConfig(service=emailverification.SMTPService(smtp_settings=_get_smtp_settings())),
+    ),
     session.init(),
     dashboard.init(),
     userroles.init(),
@@ -122,4 +126,22 @@ def _init_emailpassword():
         InputFormField(id="confirm-password"),
       ]
     ),
+    email_delivery=EmailDeliveryConfig(service=emailpassword.SMTPService(smtp_settings=_get_smtp_settings())),
+  )
+
+
+def _get_smtp_settings() -> SMTPSettings:
+  from email.header import Header
+
+  c = base_conf.SMTP_CONF
+
+  encoded_name = Header(c.account_name, "utf-8").encode()
+
+  return SMTPSettings(
+    host=c.host,
+    port=c.port,
+    from_=SMTPSettingsFrom(name=encoded_name, email=c.account_email),
+    password=c.account_password,
+    secure=c.secure,
+    username=c.account_email,  # this is optional. In case not given, from_.email will be used
   )

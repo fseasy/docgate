@@ -128,6 +128,8 @@ const getCorrespondingSPARoute = (pathOrURL: string): keyof typeof ROUTES | null
 };
 
 const customizeStyle = () => {
+  // 1. dark mode style
+  // 2. add dynamic-dots animation when button disabled.
   return `
     @media (prefers-color-scheme: dark) {
         [data-supertokens~=container] {
@@ -145,5 +147,38 @@ const customizeStyle = () => {
           --palette-superTokensBrandingText: var(--palette-textInput);
         }
     }
+
+    [data-supertokens~="button"]:disabled {
+      /* This makes the "..." text invisible but keeps the button width */
+      color: transparent !important;
+      position: relative;
+      cursor: wait;
+    }
+
+    /* 2. Overlay the new animation */
+    [data-supertokens~="button"]:disabled::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      
+      /* Text styling for your dots */
+      color: rgb(var(--palette-textLabel)); /* Match your button text color */
+      font-weight: bold;
+      font-size: 1.2rem;
+      letter-spacing: 2px;
+      
+      /* The Animation */
+      animation: dynamicDots 1.5s infinite;
+    }
+
+    /* 3. The Keyframes for . -> .. -> ... */
+    @keyframes dynamicDots {
+      0%   { content: "."; }
+      33%  { content: ".."; }
+      66%  { content: "..."; }
+      100% { content: "."; }
+    }   
   `;
 };

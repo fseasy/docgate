@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { genWebsiteFullURL } from "../../routes";
 import { JumpOutSPARouteLogic } from "../../routes";
-import ContentPageLayout from "../../component/contentPageLayout";
+import ContentPageLayout from "../../component/ContentPageLayout";
 
 export default function JumpOutSPA() {
   const redirectURL = JumpOutSPARouteLogic.extractRedirectURLAndUnquote(window.location.href);

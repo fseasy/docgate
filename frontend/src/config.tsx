@@ -1,6 +1,7 @@
 
 export const SiteConfig = {
   appName: import.meta.env.VITE_APP_NAME,
+  appLocaleName: import.meta.env.VITE_APP_LOCALE_NAME,
   apiDomain: import.meta.env.VITE_API_DOMAIN,
   apiCommonBasePath: import.meta.env.VITE_API_COMMON_BASE_PATH,
   apiAuthBasePath: import.meta.env.VITE_API_AUTH_BASE_PATH,

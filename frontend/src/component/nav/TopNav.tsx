@@ -6,6 +6,7 @@ import { JumpOutSPARouteLogic, ROUTES } from "../../routes";
 import type { StUser } from "../../utils/api";
 import { fetchSessionSupertokensUserById } from "../../utils/api";
 import { useIsAdmin } from "../../utils/frontendHooks";
+import { SiteConfig } from "../../config";
 
 const UserAuthComponent = () => {
   const session = useSessionContext();
@@ -103,7 +104,7 @@ function TopNavbar() {
     <nav className='navbar bg-base-100 sticky top-0 z-50 shadow'>
       <div className='navbar-start'>
         <Link to='/' className='text-xl font-bold'>
-          {import.meta.env.VITE_HOST_NAME}
+          {SiteConfig.appLocaleName}
         </Link>
       </div>
 

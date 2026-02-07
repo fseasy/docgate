@@ -1,8 +1,7 @@
-import TopNavbar from "../../component/nav/TopNav";
 import { customizeAuthURL } from "../../supertokens/url";
 import { useClipboard, type CopyStatus } from "../../utils/frontendHooks";
 import { useGenInviteCode } from "./useGenInviteCode";
-import ContentPageLayout from "../../component/contentPageLayout";
+import ContentPageLayout from "../../component/ContentPageLayout";
 
 export default function ManageDashboard() {
   const { result: genCodeResult, generate: genCode } = useGenInviteCode();
