@@ -1,9 +1,9 @@
 import traceback
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 from supertokens_python.recipe.session import SessionContainer
 from supertokens_python.recipe.session.asyncio import get_session, refresh_session
@@ -45,19 +45,34 @@ async def get_current_st_user_info(session: SessionContainer = Depends(verify_se
   return StUserResult(error=None, user=user.to_json())
 
 
-@user_router.get("/bind-invite-code")
-async def user_bind_invite_code(session: SessionContainer = Depends(verify_session())) -> StUserResult:
+class UserBindInviteCodeReq(BaseModel):
+  invite_code: Annotated[
+    str,
+    Field(description="invite-code, or pre-pay code"),
+    StringConstraints(strip_whitespace=True, min_length=1),
+  ]
+
+
+class UserBindInviteCodeResp(BaseModel):
+  error: str | None
+
+
+@user_router.post("/bind-invite-code")
+async def user_bind_invite_code(
+  req: UserBindInviteCodeReq,
+  session: SessionContainer = Depends(verify_session()),
+  db_session: AsyncSession = Depends(get_db_async_session),
+) -> UserBindInviteCodeResp:
+  print("SESSION DATA = ", session)  # DEBUG
   uid = session.user_id
+  code = req.invite_code
   try:
-    user = await get_st_user(uid)
+    await InviteCode.binding(db_session=db_session, user_id=uid, code=code)
   except Exception as e:
-    err = f"[api]: GetUserEmails get errors: uid={uid}, err={e}, stack={traceback.format_exc()}"
+    err = f"[api]: BindInviteCode get errors: err={e}, stack={traceback.format_exc()}"
     logger.error(f"{err}")
-    return StUserResult(error=err, user=None)
-  if not user:
-    logger.info(f"[api]: GetUserEmails get None user, uid={uid}")
-    return StUserResult(error=None, user=None)
-  return StUserResult(error=None, user=user.to_json())
+    return UserBindInviteCodeResp(error=err)
+  return UserBindInviteCodeResp(error=None)
 
 
 class InviteResult(BaseModel):

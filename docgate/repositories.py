@@ -53,20 +53,21 @@ async def async_create_user_with_redeeming_invite_code(
   session: AsyncSession, *, user_id: str, email: str, invite_code: InviteCode, do_commit: bool = False
 ) -> User:
   """business logic"""
-  pay_log = f"Redeem invite-code({invite_code.code})"
+  from .logics import InviteCode as ICLogic
+
+  user_bind_attr = ICLogic.get_bind_user_attr(invite_code.code)
   # X with session.begin(): use this may raise exception: A transaction is already begun on this Session.
   user = await async_create_user(
     session,
     user_id=user_id,
     email=email,
-    tier=Tier.GOLD,
-    tier_lifetime=None,
-    pay_method=PayMethod.INVITE_CODE,
-    pay_log=pay_log,
+    tier=user_bind_attr.tier,
+    tier_lifetime=user_bind_attr.tier_lifetime,
+    pay_method=user_bind_attr.pay_method,
+    pay_log=user_bind_attr.pay_log,
     do_commit=False,  # will do final commit
   )
-  invite_code.has_used = True
-  invite_code.bind_user_id = user_id
+  invite_code.do_binding(user_id)
   session.add(invite_code)
   if do_commit:
     await session.commit()
@@ -90,8 +91,10 @@ async def async_create_free_user(
   return user
 
 
-async def async_get_user(session: AsyncSession, user_id: str) -> User | None:
+async def async_get_user(session: AsyncSession, user_id: str, for_update: bool = False) -> User | None:
   stmt = select(User).where(User.id == user_id)
+  if for_update:
+    stmt = stmt.with_for_update()
   r = await session.execute(stmt)
   u = r.scalar()
   return u
@@ -116,9 +119,15 @@ async def async_create_invite_code(
   return code_data
 
 
-async def async_get_invite_code(session: AsyncSession, code: str) -> InviteCode | None:
+async def async_get_invite_code(session: AsyncSession, code: str, for_update: bool = False) -> InviteCode | None:
+  """
+  Args:
+  - for_update: if True, will lock the row to avoid race-condition
+  """
   # may be multiple in rare condition, get the latest one
   stmt = select(InviteCode).where(InviteCode.code == code).order_by(InviteCode.lifetime.desc())
+  if for_update:
+    stmt = stmt.with_for_update()  # LOCK
   r = await session.execute(stmt)
   code_data = r.scalars().first()
   return code_data

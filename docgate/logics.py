@@ -3,20 +3,31 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from supertokens_python.recipe.emailpassword.types import FormField
 from supertokens_python.types import User as StUser
 
 from . import config as config
-from .models import InviteCode as InviteCodeModel, Tier, User
+from .exceptions import InvalidUserInputException, NotExistInDBException, LogicError
+from .models import InviteCode as InviteCodeModel, Tier, User, PayMethod
 from .repositories import (
   async_create_free_user,
   async_create_user_with_redeeming_invite_code,
   async_get_invite_code,
+  async_get_user,
   get_db_async_session_cxt,
 )
+from docgate.supertokens_utils import async_get_user as get_st_user
 
 logger = config.LOGGER
+
+
+class CodeBindUserAttr(BaseModel):
+  tier: Tier
+  tier_lifetime: None  # NOTE: currently only None type. we can use timedelta if necessary
+  pay_method: PayMethod
+  pay_log: str
 
 
 class InviteCode(object):
@@ -37,6 +48,44 @@ class InviteCode(object):
     if not base:
       base = datetime.now(tz=timezone.utc)
     return base + timedelta(days=EXPIRE_DAYS)
+
+  @staticmethod
+  def get_bind_user_attr(code: str) -> CodeBindUserAttr:
+    log = f"Redeem invite-code({code})"
+    return CodeBindUserAttr(tier=Tier.GOLD, tier_lifetime=None, pay_method=PayMethod.INVITE_CODE, pay_log=log)
+
+  @staticmethod
+  async def binding(db_session: AsyncSession, user_id: str, code: str) -> None:
+    code_data = await async_get_invite_code(db_session, code=code, for_update=True)
+    # first check code data
+    if not code_data:
+      raise NotExistInDBException(f"invite-code [{code}] not found in db")
+    is_redeemable, err_reason = code_data.redeemable_with_reason
+    if not is_redeemable:
+      raise InvalidUserInputException(f"invite-code [{code}] can't been bind, reason=[{err_reason}]")
+    user_data = await async_get_user(db_session, user_id=user_id, for_update=True)
+    if not user_data:
+      # we have dirty data. NOW we should FIX it instead of raise exception
+      logger.warning(
+        f"CreateUser in InviteCode-Bind process: code={code}=> valid, user_id={user_id}=> not exist in our db"
+      )
+      st_user = await get_st_user(user_id)
+      if st_user is None:
+        raise LogicError("Binding User: Get supertokens user but get None, should be impossible here")
+      await async_create_user_with_redeeming_invite_code(
+        db_session, user_id=user_id, email=st_user.emails[0], invite_code=code_data
+      )
+      return  # directly return as it had done everything
+    # User exists, let's do binding!
+    code_data.do_binding(user_id)
+    ua = InviteCode.get_bind_user_attr(code)
+    user_data.tier = ua.tier
+    user_data.tier_lifetime = ua.tier_lifetime
+    user_data.pay_method = ua.pay_method
+    user_data.pay_log += f"\n{ua.pay_log}"
+    user_data.last_active_at = datetime.now(tz=timezone.utc)
+    db_session.add(user_data)
+    db_session.add(code_data)
 
 
 class UserPermission(object):
@@ -110,7 +159,7 @@ async def async_create_user_after_supertokens_signup(user: StUser, form_fields: 
       db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email)
       logger.warning(f"Invite-code: From field value is empty! Free user [{db_user}] created.")
       return CreateUserStatus.REDEEM_FAILED_ON_NO_INVITE_CODE_IN_FORM_INPUT
-    code_data = await async_get_invite_code(db_session, invite_code_str)
+    code_data = await async_get_invite_code(db_session, invite_code_str, for_update=True)
     if not code_data:
       pay_log = f"RedeemInviteCode Fail: code=[{invite_code_str}] wasn't exist in DB"
       db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email, pay_log=pay_log)

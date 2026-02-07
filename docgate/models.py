@@ -122,6 +122,7 @@ class User(DbBaseModel):
   email: Mapped[str] = mapped_column(String(100), index=True)
   # datetime In UTC tz while don't contain tz info
   created_at: Mapped[datetime] = mapped_column(TZDateTime, default=lambda: datetime.now(tz=timezone.utc))
+  # only record when db side changes.
   last_active_at: Mapped[datetime] = mapped_column(
     TZDateTime,
     default=lambda: datetime.now(tz=timezone.utc),
@@ -170,6 +171,10 @@ class InviteCode(DbBaseModel):
   )
 
   bind_user: Mapped[User | None] = relationship(back_populates="invite_codes")
+
+  def do_binding(self, user_id: str) -> None:
+    self.has_used = True
+    self.bind_user_id = user_id
 
   @property
   def redeemable_with_reason(self) -> tuple[bool, str | None]:
