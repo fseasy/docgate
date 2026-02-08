@@ -1,3 +1,56 @@
+## 26.02.08
+
+### vibe coding
+
+拿 copilot 直接生成了 logic bind code 的单测代码；
+
+用 cline 直接生成了前端的代码—调用、设置…
+
+### 耗时统计
+
+
+**check** 接口
+
+冷启动：
+
+enter check, elapsed= 6.0829988797195256e-06
+ready request get-session, elapsed= 7.333299799938686e-05
+request get-session success, elapsed= 0.9524437500003842
+request get-user-id success, elapsed= 0.9524577500014857
+request get-user success, elapsed= 3.352637500000128
+
+接着第二次：
+
+enter check, elapsed= 1.2919990695081651e-06
+ready request get-session, elapsed= 8.250000973930582e-06
+request get-session success, elapsed= 0.0002462500015099067
+request get-user-id success, elapsed= 0.00025262499912059866
+request get-user success, elapsed= 1.9589982079996844
+
+**get-supertokens-info** 接口
+
+冷启动：
+
+Enter get-supertokens-info: 0.00
+get get-supertokens-info result: 1.67
+
+第二次：
+
+Enter get-supertokens-info: 0.00
+get get-supertokens-info result: 0.83
+
+总结：
+
+- supertokens get user: 第一次 1.7s; 后续稳定 0.8s.
+- get-session/verify-session: 无缓存情况下，大概是 1s；会缓存,第二次耗时基本忽略不计
+- supabase: 稳定 2 s 左右…
+
+### tailwind sm 表示超过小屏幕的情况
+
+所以要写仅在小屏幕上应用的样式，应该直接写样式，再用 sm: 来覆盖这个样式。
+如 `hidden sm:flex` 就是小屏幕 hidden, 超过小屏幕 flex.
+
+
 ## 26.02.07
 
 ### Customize supertokens form submit button
@@ -50,6 +103,12 @@ ChildComponent 内部就可以通过 useContext(MyContext) 拿到 value
 Provider 必须包住需要用到这个上下文的组件
 
 子组件自动能拿到 Provider 提供的值
+
+### SQLAlchemy 加锁写
+
+使用 with_for_update.
+
+一般不影响不用这个操作的请求。
 
 ## 26.02.06
 

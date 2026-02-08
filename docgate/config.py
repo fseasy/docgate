@@ -42,6 +42,7 @@ else:
 
 APP_NAME = os.environ["VITE_APP_NAME"]
 APP_LOCALE_NAME = os.environ["VITE_APP_LOCALE_NAME"]
+CONTENT_AUTHOR_NAME = os.environ["VITE_CONTENT_AUTHOR_NAME"]
 
 LOGGER = build_logger(APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO)
 

@@ -2,11 +2,12 @@ from datetime import datetime, timezone
 from enum import IntEnum
 from zoneinfo import ZoneInfo
 
+from pydantic import BaseModel, ValidationError, Field
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, NullPool, String, Text, TypeDecorator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from .config import env
+from .config import LOGGER as logger, env
 from .exceptions import LogicError
 from .utils import safe_getattr, safe_strftime
 
@@ -14,7 +15,7 @@ from .utils import safe_getattr, safe_strftime
 # Define enums
 class PayMethod(IntEnum):
   INVITE_CODE = 0
-  SELF_HOSTED_PAYWALL = 1
+  PAYWALL = 1
 
 
 class Tier(IntEnum):
@@ -115,6 +116,49 @@ USER_TABLE_NAME_WITH_ENV = f"users_{env.value}"
 INVITE_TABLE_NAME_WITH_ENV = f"invite_codes_{env.value}"
 
 
+class PayLogUnit(BaseModel):
+  method: str | None  # directly store the name to save space.
+  log: str
+  is_success: bool
+  date: str = Field(description="UTC iso timestamp str", default_factory=datetime.now(tz=timezone.utc).isoformat)
+
+
+class PayLog(BaseModel):
+  logs: list[PayLogUnit]
+
+  def add_new(self, log: str, method: PayMethod | None, is_success: bool) -> PayLogUnit:
+    method_name = method.name if method else None
+    new_unit = PayLogUnit(log=log, method=method_name, is_success=is_success)
+    self.logs.append(new_unit)
+    return new_unit
+
+  def to_db_str(self) -> str:
+    return self.model_dump_json(indent=None, ensure_ascii=False)
+
+  @classmethod
+  def from_db_str(cls, log_str: str | None) -> "PayLog":
+    if not log_str:
+      return cls(logs=[])
+    try:
+      d = cls.model_validate_json(log_str)
+    except ValidationError as e:
+      logger.warning(f"Unexpected paylog format, err={e}. Let's transform it to new format")
+      d = cls(logs=[])
+      d.add_new(
+        f"TRANS Legacy FORMAT with reset success flag: {log_str}", method=None, is_success=False
+      )  # set the default success to True
+    return d
+
+  @classmethod
+  def db_add_new2current(
+    cls, current_log_serialized_str: str | None, new_log_str: str, method: PayMethod, is_success: bool
+  ) -> str:
+    """A helper function for db: Deserialize the current log and append new, then serialize to str"""
+    cur_log = cls.from_db_str(current_log_serialized_str)
+    cur_log.add_new(new_log_str, method, is_success)
+    return cur_log.to_db_str()
+
+
 class User(DbBaseModel):
   __tablename__ = USER_TABLE_NAME_WITH_ENV
 
@@ -132,8 +176,9 @@ class User(DbBaseModel):
   """Used to decide user payment, with tier_lifetime constraints"""
   tier_lifetime: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
 
-  pay_method: Mapped[PayMethod | None] = mapped_column(IntEnumDecorator(PayMethod), nullable=True)
-  """Both pay_method & pay_log are auxiliary fields and should not be used to determine payment status"""
+  """A json object. see the PayLog object
+  pay_log are auxiliary fields and should not be used to determine payment status
+  """
   pay_log: Mapped[str] = mapped_column(Text, default="")  # log for payment (success, error, history)
   # currently it's always None because it's always lifelong
 
@@ -149,9 +194,25 @@ class User(DbBaseModel):
       f"User(id=[{self.id}], email=[{self.email}], created_at=[{safe_strftime(self.created_at)}]"
       f", last_active_at=[{safe_strftime(self.last_active_at)}]"
       f", tier=[{self.tier.name})], lifetime=[{safe_strftime(self.tier_lifetime)}]"
-      f", pay_method=[{safe_getattr(self.pay_method, 'name')}]"
       f", pay_log=[{self.pay_log}]"
     )
+
+  def add_paylog(self, log_str: str, method: PayMethod, is_success: bool) -> str:
+    new_log = PayLog.db_add_new2current(self.pay_log, log_str, method=method, is_success=is_success)
+    self.pay_log = new_log
+    return new_log
+
+  @property
+  def continuous_pay_failure_cnt(self):
+    """count continuous failure count"""
+    log = PayLog.from_db_str(self.pay_log)
+    cnt = 0
+    for unit in reversed(log.logs):
+      if not unit.is_success:
+        cnt += 1
+      else:
+        break
+    return cnt
 
 
 class InviteCode(DbBaseModel):

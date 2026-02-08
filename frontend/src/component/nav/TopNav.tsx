@@ -1,51 +1,23 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { redirectToAuth } from "supertokens-auth-react";
-import { signOut, useSessionContext } from "supertokens-auth-react/recipe/session";
+import { signOut } from "supertokens-auth-react/recipe/session";
 import { JumpOutSPARouteLogic, ROUTES } from "../../routes";
-import type { StUser } from "../../utils/api";
-import { fetchSessionSupertokensUserById } from "../../utils/api";
-import { useIsAdmin } from "../../utils/frontendHooks";
+import { useIsAdmin, useEmail } from "../../utils/frontendHooks";
 import { SiteConfig } from "../../config";
 
+
 const UserAuthComponent = () => {
-  const session = useSessionContext();
-  const doesSessionExist = !session.loading && session.doesSessionExist;
-
+  const emailStatus = useEmail();
   const navigate = useNavigate();
-
-  const [user, setUser] = useState<StUser | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
-  const pageLoading = session.loading || userLoading;
 
   const adminStatus = useIsAdmin();
   const isAdmin = !adminStatus.loading && adminStatus.isAdmin;
-
-  useEffect(() => {
-    if (!doesSessionExist) {
-      setUser(null);
-      return;
-    }
-    let cancelled = false;
-
-    setUserLoading(true);
-    (async () => {
-      try {
-        const userData = await fetchSessionSupertokensUserById();
-        if (!cancelled) setUser(userData);
-      } catch (error) {
-        console.error("Failed to fetch user:", error);
-      } finally {
-        if (!cancelled) setUserLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [doesSessionExist]);
+  const [isSigningOut, setIsSigninOut] = useState<boolean>(false);
 
   async function logoutClicked() {
+    setIsSigninOut(true);
     await signOut();
-    setUser(null); // ! very important. to sync the nav bar.
     navigate(JumpOutSPARouteLogic.genRedirectRelativeURL("/")); // Jump Out SPA for root!
   }
 
@@ -68,49 +40,92 @@ const UserAuthComponent = () => {
 
   const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin }: HelloSignOutProps) => (
     <>
-      <span className='hidden md:inline text-base-content'>Hi, {userDisplayName}</span>
+      <li className="hidden sm:flex">
+        <span
+          className="select-text cursor-default text-base-content active:bg-transparent focus:bg-transparent hover:bg-transparent">
+          Hi, {userDisplayName}
+        </span>
+      </li>
 
-      {isAdmin === true && (
+      <div className="divider divider-horizontal"></div>
+
+      <li className="tracking-widest">
         <NavLink
-          to={ROUTES.MANAGE}
+          to={ROUTES.DASHBOARD}
           className={({ isActive }) =>
             isActive
-              ? "text-base-content font-semibold border-b-2 border-primary"
-              : "text-base-content/70 hover:text-base-content border-b-2 border-transparent"
+              ? "font-semibold text-base-content/70"
+              : ""
           }
         >
-          管理
+          个人页
         </NavLink>
-      )}
+      </li>
 
-      <button
-        onClick={onSignOut}
-        className='text-base-content/70 hover:text-base-content border-b-2 border-transparent cursor-pointer'
-      >
-        退出登录
-      </button>
+      <li className="tracking-widest">
+        <button
+          onClick={() => { navigate(JumpOutSPARouteLogic.genRedirect2DocRoot()); }}
+        >
+          文档页
+        </button>
+      </li>
+
+      {isAdmin === true && (
+        <li className="tracking-widest">
+          <NavLink
+            to={ROUTES.MANAGE}
+            className={({ isActive }) =>
+              isActive
+                ? "font-semibold text-base-content/70"
+                : ""
+            }
+          >
+            管理
+          </NavLink>
+        </li>
+      )
+      }
+
+      <li className="tracking-widest">
+        <button
+          onClick={onSignOut}
+          disabled={isSigningOut}
+        >
+          {isSigningOut ? <span className="loading loading-dots"></span> : "退出登录"}
+        </button>
+      </li>
     </>
   );
 
-  if (pageLoading || !user || user.emails.length === 0) {
+  if (emailStatus.loading || !emailStatus.email) {
     return <SignInUpComponent />;
   }
 
-  return <HelloSignOutComponent userDisplayName={user.emails[0]} onSignOut={logoutClicked} isAdmin={isAdmin} />;
+  return <HelloSignOutComponent userDisplayName={emailStatus.email} onSignOut={logoutClicked} isAdmin={isAdmin} />;
 };
 
 function TopNavbar() {
   return (
-    <nav className='navbar bg-base-100 sticky top-0 z-50 shadow'>
-      <div className='navbar-start'>
-        <Link to='/' className='text-xl font-bold'>
+    <nav className='navbar bg-base-100 shadow-sm'>
+      <div className="navbar-start">
+        <Link to='/' className='btn btn-ghost text-xl'>
           {SiteConfig.appLocaleName}
         </Link>
       </div>
 
-      <div className='navbar-end'>
-        <div className='flex items-center gap-4'>
-          <UserAuthComponent />
+      <div className="navbar-end ">
+        <div className="hidden sm:flex">
+          <ul className="menu menu-horizontal px-1">
+            <UserAuthComponent />
+          </ul>
+        </div>
+        <div className="dropdown dropdown-end">
+          <div tabIndex={0} role="button" className="btn btn-ghost sm:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" /> </svg>
+          </div>
+          <ul tabIndex={-1} className="menu menu-md dropdown-content bg-base-100 z-99 mt-3 w-32 items-end-safe p-2 shadow">
+            <UserAuthComponent />
+          </ul>
         </div>
       </div>
     </nav>

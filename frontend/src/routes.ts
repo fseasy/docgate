@@ -1,7 +1,7 @@
 import { SiteConfig } from "./config";
 import { joinURL, normalizePath } from "./utils/basic";
 
-const basePath = SiteConfig.websiteCommonBasePath;
+const basePath = SiteConfig.websiteReactBasePath;
 
 export const ROUTES = {
   DASHBOARD: normalizePath(`/${basePath}/dashboard`),
@@ -14,6 +14,8 @@ export const ROUTES = {
 
 const API_ROUTES = {
   USER_SUPERTOKENS_INFO: "/user/get-supertokens-info",
+  USER_DB_INFO: "/user/get",
+  PURCHASE_BY_CODE: "/user/purchase-by-code",
   GEN_INVITE_CODE: "/admin/gen-invite-code",
 } as const;
 
@@ -63,11 +65,23 @@ export class JumpOutSPARouteLogic {
    *                          BUT IN FACT you can just set any value here because 
    *                          it can handle this condition.
    */
-  static genRedirectRelativeURL(quotedRedirectURL: string) {
+  static genRedirectRelativeURL(quotedRedirectURL: string): string {
     return `${JumpOutSPARouteLogic.REDIRECT_RELATIVE_URL_PREFIX}${quotedRedirectURL}`;
   }
 
-  static extractRedirectURLAndUnquote(s: string) {
+  /*****
+   * A helper function
+   */
+  static genRedirect2DocRoot(): string {
+    return JumpOutSPARouteLogic.genRedirectRelativeURL(SiteConfig.websiteDocRootPath);
+  }
+
+  /*****A helper function */
+  static genRedirect2IndexRoot(): string {
+    return JumpOutSPARouteLogic.genRedirectRelativeURL(SiteConfig.websiteIndexRootPath);
+  }
+
+  static extractRedirectURLAndUnquote(s: string): string {
     // manually split string, instead of using URLSearchParams
     // in case the original redirect url isn't quoted properly.
 

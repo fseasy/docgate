@@ -4,10 +4,10 @@ import { defineConfig, loadEnv } from 'vite';
 
 const getWebsitePath = ({ mode }: { mode: string; }) => {
   const dotEnv = loadEnv(mode, process.cwd()); // - Need manually load the env at the config stage.
-  const basePath = dotEnv.VITE_WEBSITE_COMMON_BASE_PATH;
+  const basePath = dotEnv.VITE_WEBSITE_REACT_BASE_PATH;
 
   if (!basePath || basePath.trim() === '') {
-    throw new Error('`VITE_WEBSITE_COMMON_BASE_PATH` is required in .env.[mode] file.');
+    throw new Error('`VITE_WEBSITE_REACT_BASE_PATH` is required in .env.[mode] file.');
   }
 
   // Normalize: ensure leading slash and trailing slash (vite requires a trailing slash, whereas supertokens does not)

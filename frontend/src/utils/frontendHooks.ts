@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import Session from "supertokens-auth-react/recipe/session";
+import Session, { useSessionContext } from "supertokens-auth-react/recipe/session";
 import { UserRoleClaim } from "supertokens-auth-react/recipe/userroles";
 import { useNavigate } from "react-router-dom";
-
+import { fetchSessionSupertokensUserById } from "./api";
 
 type AdminStatus = { loading: true; } | { loading: false; isAdmin: boolean; };
 
@@ -14,6 +14,43 @@ export const useIsAdmin = (): AdminStatus => {
   const roles = claimValue.value;
   const isAdmin = Array.isArray(roles) && roles.includes("admin");
   return { loading: false, isAdmin: isAdmin };
+};
+
+type EmailStatus = { loading: true; } | { loading: false; email: string; } | { loading: false, email: undefined; };
+
+export const useEmail = (): EmailStatus => {
+  const [emailStatus, setEmailStatus] = useState<EmailStatus>({ loading: true });
+  const session = useSessionContext();
+
+  useEffect(() => {
+    let isMount = true;
+
+    const loadEmail = async () => {
+      if (session.loading) {
+        return;
+      }
+      const sessionEmail = session.accessTokenPayload.email;
+      if (sessionEmail) {
+        if (isMount) setEmailStatus({ loading: false, email: sessionEmail });
+        return;
+      }
+      try {
+        if (isMount) {
+          const userData = await fetchSessionSupertokensUserById();
+          if (isMount) setEmailStatus({ loading: false, email: userData?.emails[0] });
+        }
+      } catch (err) {
+        console.error("Fetch user data failed", { err });
+        if (isMount) setEmailStatus({ loading: false, email: undefined });
+      }
+    };
+    loadEmail();
+
+    return () => { isMount = false; };
+
+  }, [session.loading]);
+
+  return emailStatus;
 };
 
 interface UseClipboardOptions {

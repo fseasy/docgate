@@ -82,4 +82,81 @@ export const genInviteCode = async (): Promise<InviteCodeResult> => {
   }
 };
 
+type PurchaseByCodeResult = {
+  fail_reason: string | null;
+};
+
+/**
+ * purchase by code to current user
+ * - You need session context to call this.
+ */
+export const purchaseByCode = async (inviteCode: string): Promise<PurchaseByCodeResult> => {
+  try {
+    const apiUrl = getApiURL("PURCHASE_BY_CODE");
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ invite_code: inviteCode }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed on api call, status=${response.status}`);
+    }
+    const data: PurchaseByCodeResult = await response.json();
+    return data;
+  } catch (error) {
+    const errMsg = `Unexpected error: ${error}`;
+    console.log(`bindInviteCode failed: ${errMsg}`);
+    return { fail_reason: errMsg };
+  }
+};
+
+/** PayLog unit from backend */
+export interface PayLogUnit {
+  method: string | null;
+  log: string;
+  is_success: boolean;
+  date: string;
+}
+
+/** PayLog from backend */
+export interface PayLog {
+  logs: PayLogUnit[];
+}
+
+/** User info from database */
+export interface UserDbInfo {
+  id: string;
+  email: string;
+  created_at: string;
+  tier: string;
+  tier_lifetime: string;
+  pay_log: PayLog;
+}
+
+/**
+ * Get current user's database info
+ * - You need session context to call this.
+ */
+export const fetchUserDbInfo = async (): Promise<UserDbInfo | null> => {
+  try {
+    const apiUrl = getApiURL("USER_DB_INFO");
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+    if (!response.ok) {
+      throw new Error(`Failed on api call, status=${response.status}`);
+    }
+    const data: UserDbInfo = await response.json();
+    return data;
+  } catch (error) {
+    const errMsg =
+      error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error in Frontend";
+    console.log(`fetchUserDbInfo failed: ${errMsg}`);
+    return null;
+  }
+};
+
 

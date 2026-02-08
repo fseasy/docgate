@@ -28,22 +28,32 @@ async def async_get_user_by_email(email: str) -> list[User]:
   return user_infos
 
 
-async def async_add_role2user(user_id: str, role: StRole) -> str | None:
-  """Return None if all success, else return error/warning info"""
+async def async_add_role2user(user_id: str, role: StRole) -> tuple[bool, str | None]:
+  """
+  Returns:
+    (is_success, tips)
+    tips: Return None if all success, else return error/warning info"""
   res = await add_role_to_user("public", user_id, role)
   if isinstance(res, UnknownRoleError):
-    return f"Unknown role, err={res}"
+    return (False, f"Unknown role, err={res}")
   if res.did_user_already_have_role:
-    return f"User {user_id} already has role of {role}"
+    return (True, f"User {user_id} already has role of {role}")
+  return (True, None)
 
 
-async def async_create_role():
+async def async_init_roles():
   """NOTE: you can only create role on yourself environment. i.e., you can't create role in the `try.supertokens.io`"""
-  user_res = create_new_role_or_add_permissions(StRole.USER, ["read"])
+  logger.info("Init supertokens roles")
+
+  user_res = create_new_role_or_add_permissions(StRole.USER, [])
+  user_gold_res = create_new_role_or_add_permissions(StRole.USER_GOLD_TIER, ["read"])
   admin_res = create_new_role_or_add_permissions(StRole.ADMIN, ["read", "write"])
   res = await user_res
   if res.created_new_role:
     logger.info(f"Supertokens-UserRole: created {StRole.USER} role")
+  res = await user_gold_res
+  if res.created_new_role:
+    logger.info(f"Supertokens-UserRole: created {StRole.USER_GOLD_TIER} role")
   res = await admin_res
   if res.created_new_role:
     logger.info(f"Supertokens-UserRole: created {StRole.ADMIN} role")

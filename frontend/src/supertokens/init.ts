@@ -42,10 +42,13 @@ export function initSuperTokens() {
           }
           // still in SPO, directly return
           return givenQuotedPath;
+        } else {
+          // no redirect path. Let's go to the doc root
+          return JumpOutSPARouteLogic.genRedirect2DocRoot();
         }
       }
-      // Fail or no redirect Path. go to the jump out quote and redirect to website level root.
-      return JumpOutSPARouteLogic.genRedirectRelativeURL("/");
+      // Fail. redirect to website level root to skip the auth loop.
+      return JumpOutSPARouteLogic.genRedirect2IndexRoot();
     }
   });
 
@@ -164,7 +167,7 @@ const customizeStyle = () => {
       transform: translate(-50%, -50%);
       
       /* Text styling for your dots */
-      color: rgb(var(--palette-textLabel)); /* Match your button text color */
+      color: rgb(var(--palette-buttonText)); /* Match your button text color */
       font-weight: bold;
       font-size: 1.2rem;
       letter-spacing: 2px;
@@ -179,6 +182,6 @@ const customizeStyle = () => {
       33%  { content: ".."; }
       66%  { content: "..."; }
       100% { content: "."; }
-    }   
+    }
   `;
 };

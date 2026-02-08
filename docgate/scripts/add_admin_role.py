@@ -7,13 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from docgate.models import Tier
 from docgate.repositories import async_get_user, get_db_async_session_cxt, lifespan_db
 from docgate.supertokens_config import StRole, init_supertokens
-from docgate.supertokens_utils import async_add_role2user, async_create_role, async_get_user_by_email
+from docgate.supertokens_utils import async_add_role2user, async_init_roles, async_get_user_by_email
 
 
 async def add_admin_for_emails(emails: Iterable[str], db_session: AsyncSession) -> None:
   init_supertokens()
 
-  await async_create_role()
+  await async_init_roles()
 
   for email in emails:
     try:
@@ -34,12 +34,12 @@ async def add_admin_for_emails(emails: Iterable[str], db_session: AsyncSession) 
         continue
 
       try:
-        result_info = await async_add_role2user(user_id, StRole.ADMIN)
-        if result_info:
+        add_ok, add_tips = await async_add_role2user(user_id, StRole.ADMIN)
+        if not add_ok:
           # add_role2user returns a string on error or when already had role
-          print(f"Email={email} User={user_id}: add role get warning/error: {result_info}")
+          print(f"Email={email} User={user_id}: add role failed, reason: {add_tips}")
         else:
-          print(f"Email={email} User={user_id}: add role success")
+          print(f"Email={email} User={user_id}: add role success, tips: {add_tips}")
         db_user = await async_get_user(db_session, user_id)
         if db_user is None:
           err = f"Email={email} User={user_id}: failed to get user from self-hosted db"
