@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { genInviteCode } from "../../utils/api";
+import { genPrepaidCode } from "../../utils/api";
 
-type GenInviteCodeResponse =
+type GenPrepaidCodeResponse =
   | { status: "idle"; }
   | { status: "loading"; }
   | { status: "success"; code: string; lifetime: string; }
@@ -10,12 +10,12 @@ type GenInviteCodeResponse =
     error: string;
   };
 
-export const useGenInviteCode = () => {
-  const [result, setResult] = useState<GenInviteCodeResponse>({ status: "idle" });
+export const useGenPrepaidCode = () => {
+  const [result, setResult] = useState<GenPrepaidCodeResponse>({ status: "idle" });
 
   const generate = async () => {
     setResult({ status: "loading" });
-    const apiResult = await genInviteCode();
+    const apiResult = await genPrepaidCode();
     if (apiResult.error === null) {
       setResult({
         status: "success",

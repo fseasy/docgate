@@ -9,6 +9,8 @@ export const ROUTES = {
   PURCHASE: normalizePath(`/${basePath}/purchase`),
   // A redirect proxy from react-ts project => static docs by refresh window(jump out SPA)
   JUMP_OUT_REDIRECT: normalizePath(`/${basePath}/jo`),
+  STRIPE_CHECKOUT: normalizePath(`/${basePath}/stripe-checkout`),
+  STRIPE_RETURN: normalizePath(SiteConfig.stripeReturnRoutePath),
 };
 
 
@@ -16,7 +18,10 @@ const API_ROUTES = {
   USER_SUPERTOKENS_INFO: "/user/get-supertokens-info",
   USER_DB_INFO: "/user/get",
   PURCHASE_BY_CODE: "/user/purchase-by-code",
-  GEN_INVITE_CODE: "/admin/gen-invite-code",
+  GEN_PREPAID_CODE: "/admin/gen-prepaid-code",
+  STRIPE_CREATE_CHECKOUT_SESSION: "/stripe/create-checkout-session",
+  STRIPE_SESSION_STATUS: "/stripe/session-status",
+  STRIPE_AFTER_PAY: "/stripe/after-pay",
 } as const;
 
 export type APIRouteName = keyof typeof API_ROUTES;
@@ -81,7 +86,7 @@ export class JumpOutSPARouteLogic {
     return JumpOutSPARouteLogic.genRedirectRelativeURL(SiteConfig.websiteIndexRootPath);
   }
 
-  static extractRedirectURLAndUnquote(s: string): string {
+  static extractRedirectURLAndUnquote(s: string): string | null {
     // manually split string, instead of using URLSearchParams
     // in case the original redirect url isn't quoted properly.
 
@@ -109,3 +114,7 @@ export function isPathPrefixBelongsToSPA(pathname: string): boolean {
   const trimSlashPath = pathname.replace(/^\/+/, "");
   return trimSlashPath.startsWith(trimSlashBase);
 }
+
+export const QUERY_KEYS = {
+  PREPAID_CODE: "pc"
+} as const;

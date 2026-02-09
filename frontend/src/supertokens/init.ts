@@ -3,7 +3,7 @@ import EmailPassword from "supertokens-auth-react/recipe/emailpassword";
 import Session from "supertokens-auth-react/recipe/session";
 import { SiteConfig } from "../config";
 import { ZhUiTrans } from "./emailPasswordUi.zh";
-import { ROUTES, JumpOutSPARouteLogic } from "../routes";
+import { ROUTES, JumpOutSPARouteLogic, QUERY_KEYS } from "../routes";
 import { extractURLPathname, normalizePath } from "../utils/basic";
 import EmailVerification from "supertokens-auth-react/recipe/emailverification";
 
@@ -99,7 +99,7 @@ function customizedEmailPassword() {
             nonOptionalErrorMsg: "该字段不能为空",
           },
           {
-            id: "invite-code",
+            id: "prepaid-code",
             label: "预付款代码（也可后续购买)",
             placeholder: "如果您已提前购买，请输入获得的 code",
             optional: true,
@@ -109,7 +109,7 @@ function customizedEmailPassword() {
               }
 
               const params = new URLSearchParams(window.location.search);
-              return params.get("ic") ?? "";
+              return params.get(QUERY_KEYS.PREPAID_CODE) ?? "";
             },
           },
         ],

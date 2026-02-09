@@ -2,17 +2,17 @@ import { useState } from "react";
 import ContentPageLayout from "../../component/ContentPageLayout";
 import { SiteBanner } from "../../assets/images";
 import { purchaseByCode } from "../../utils/api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { JumpOutSPARouteLogic, ROUTES } from "../../routes";
 
 export default function Purchase() {
   const navigate = useNavigate();
 
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setPrepaidCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string; } | null>(null);
 
-  const handleBindInviteCode = async () => {
+  const handleBindPrepaidCode = async () => {
     // 验证输入
     const trimmedCode = inviteCode.trim();
     if (!trimmedCode) {
@@ -58,17 +58,17 @@ export default function Purchase() {
             placeholder="请输入预付款码"
             className="flex-6 input input-info p-3"
             value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
+            onChange={(e) => setPrepaidCode(e.target.value)}
             disabled={isLoading}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !isLoading) {
-                handleBindInviteCode();
+                handleBindPrepaidCode();
               }
             }}
           />
           <button
             className="flex-1 btn btn-info"
-            onClick={handleBindInviteCode}
+            onClick={handleBindPrepaidCode}
             disabled={isLoading}
           >
             {isLoading ? (
@@ -111,9 +111,9 @@ export default function Purchase() {
         <p className="text-base-content/70 mb-4">
           直接使用信用卡或 Stripe 支付，一键购买课程。
         </p>
-        <button className="btn btn-info">
+        <Link to={ROUTES.STRIPE_CHECKOUT} className="btn btn-info">
           使用 Stripe 支付
-        </button>
+        </Link>
       </div>
     </ContentPageLayout>
   );

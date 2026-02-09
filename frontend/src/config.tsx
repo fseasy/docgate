@@ -10,5 +10,8 @@ export const SiteConfig = {
   websiteReactBasePath: import.meta.env.VITE_WEBSITE_REACT_BASE_PATH,
   websiteDocRootPath: import.meta.env.VITE_WEBSITE_DOC_ROOT_PATH,
   websiteIndexRootPath: import.meta.env.VITE_WEBSITE_INDEX_ROOT_PATH,
+  stripePublishableApiKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_API_KEY,
+  stripeReturnRoutePath: import.meta.env.VITE_STRIPE_RETURN_ROUTE_PATH,
+  contentAuthorName: import.meta.env.VITE_CONTENT_AUTHOR_NAME,
 };
 

@@ -1,3 +1,16 @@
+## 26.02.09
+
+### 接入 stripe
+
+流程文档还是比较简洁的。
+
+如何将 stripe 和自己逻辑嵌合？
+
+1. 将一些数据放到 metadata, 或者绑定 `client_reference_id`
+2. 在 webhook 中，处理数据库维度的更新 — 这里没有用户的 session.
+3. 在跳转的 return 页面，处理 session 维度的更新（但是需要依赖数据维护的校验）—所以，这里对系统设计还是有点依赖的，必须得在数据库里存储一个权限相关的内容，用作 supertokens session 和 stripe 的桥梁。
+
+
 ## 26.02.08
 
 ### vibe coding
@@ -49,6 +62,12 @@ get get-supertokens-info result: 0.83
 
 所以要写仅在小屏幕上应用的样式，应该直接写样式，再用 sm: 来覆盖这个样式。
 如 `hidden sm:flex` 就是小屏幕 hidden, 超过小屏幕 flex.
+
+###  React 里所有的组件在每次刷新都会被重新渲染
+
+所以，组件顶层流里不能有副作用！特别是不能去刷新内容，因为这会套娃。
+
+有副作用的，就放到 useEffect 里面，因为 useEffect 有监听触发对象限制，能够避免这个问题。
 
 
 ## 26.02.07
@@ -134,8 +153,8 @@ React 组件：返回 JSX 的函数或者类。
 
 ### alembic 迁移数据库
 
-why：之前 invite-code 里有一个 bind_user_id 外链到 user 里的；现在我在做一个删除 user 的脚本；
-删除后，其关联的 invite-code 的 bind_user_id 需要被设置为 null.
+why：之前 prepaid-code 里有一个 bind_user_id 外链到 user 里的；现在我在做一个删除 user 的脚本；
+删除后，其关联的 prepaid-code 的 bind_user_id 需要被设置为 null.
 
 这个可以通过 foreignkey 的设置，让 db  自己来做。但是这需要改 schema. 
 

@@ -7,13 +7,13 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from docgate.exceptions import InvalidUserInputException
-from docgate.logics import CreateDbUserLogic, CreateUserStatus, InviteCodeLogic
-from docgate.models import InviteCode as InviteCodeModel, PayLogUnit, Tier, User
+from docgate.logics import CreateDbUserLogic, CreateUserStatus, PrepaidCodeLogic
+from docgate.models import PrepaidCode as PrepaidCodeModel, PayLogUnit, Tier, User
 
 
 @pytest.mark.asyncio
-class TestInviteCodeLogicBindingDbUser:
-  """Test suite for InviteCodeLogic.binding_db_user() method"""
+class TestPrepaidCodeLogicBindingDbUser:
+  """Test suite for PrepaidCodeLogic.binding_db_user() method"""
 
   @pytest.fixture
   def db_session(self):
@@ -43,12 +43,12 @@ class TestInviteCodeLogicBindingDbUser:
   async def test_binding_db_user_code_not_found(self, db_session, mock_db_user, code):
     """Should raise InvalidUserInputException when code doesn't exist"""
     # Arrange
-    with patch("docgate.logics.async_get_invite_code", new_callable=AsyncMock) as mock_get_code:
+    with patch("docgate.logics.async_get_prepaid_code", new_callable=AsyncMock) as mock_get_code:
       mock_get_code.return_value = None
 
       # Act & Assert
       with pytest.raises(InvalidUserInputException):
-        await InviteCodeLogic.binding_db_user(db_session, mock_db_user, code)
+        await PrepaidCodeLogic.binding_db_user(db_session, mock_db_user, code)
 
       # Verify user's paylog was added with failure reason
       mock_db_user.add_paylog.assert_called_once()
@@ -60,15 +60,15 @@ class TestInviteCodeLogicBindingDbUser:
   async def test_binding_db_user_code_not_redeemable_used(self, db_session, mock_db_user, code):
     """Should raise InvalidUserInputException when code is already used"""
     # Arrange
-    mock_code_data = MagicMock(spec=InviteCodeModel)
+    mock_code_data = MagicMock(spec=PrepaidCodeModel)
     mock_code_data.redeemable_with_reason = (False, "has already been used")
 
-    with patch("docgate.logics.async_get_invite_code", new_callable=AsyncMock) as mock_get_code:
+    with patch("docgate.logics.async_get_prepaid_code", new_callable=AsyncMock) as mock_get_code:
       mock_get_code.return_value = mock_code_data
 
       # Act & Assert
       with pytest.raises(InvalidUserInputException):
-        await InviteCodeLogic.binding_db_user(db_session, mock_db_user, code)
+        await PrepaidCodeLogic.binding_db_user(db_session, mock_db_user, code)
 
       # Verify user's paylog was added with failure reason
       mock_db_user.add_paylog.assert_called_once()
@@ -80,29 +80,29 @@ class TestInviteCodeLogicBindingDbUser:
   async def test_binding_db_user_code_not_redeemable_expired(self, db_session, mock_db_user, code):
     """Should raise InvalidUserInputException when code is expired"""
     # Arrange
-    mock_code_data = MagicMock(spec=InviteCodeModel)
+    mock_code_data = MagicMock(spec=PrepaidCodeModel)
     mock_code_data.redeemable_with_reason = (False, "has expired")
 
-    with patch("docgate.logics.async_get_invite_code", new_callable=AsyncMock) as mock_get_code:
+    with patch("docgate.logics.async_get_prepaid_code", new_callable=AsyncMock) as mock_get_code:
       mock_get_code.return_value = mock_code_data
 
       # Act & Assert
       with pytest.raises(InvalidUserInputException):
-        await InviteCodeLogic.binding_db_user(db_session, mock_db_user, code)
+        await PrepaidCodeLogic.binding_db_user(db_session, mock_db_user, code)
 
   # Test Case 4: code 存在且可 redeem，成功绑定
   async def test_binding_db_user_success(self, db_session, mock_db_user, code):
     """Should successfully bind code to user"""
     # Arrange
-    mock_code_data = MagicMock(spec=InviteCodeModel)
+    mock_code_data = MagicMock(spec=PrepaidCodeModel)
     mock_code_data.redeemable_with_reason = (True, None)
     mock_code_data.do_binding = MagicMock()
 
-    with patch("docgate.logics.async_get_invite_code", new_callable=AsyncMock) as mock_get_code:
+    with patch("docgate.logics.async_get_prepaid_code", new_callable=AsyncMock) as mock_get_code:
       mock_get_code.return_value = mock_code_data
 
       # Act
-      await InviteCodeLogic.binding_db_user(db_session, mock_db_user, code)
+      await PrepaidCodeLogic.binding_db_user(db_session, mock_db_user, code)
 
       # Assert
       # Verify code binding was called
@@ -151,7 +151,7 @@ class TestCreateDbUserLogicAsyncCreateWithRedeeming:
     mock_free_user.id = user_id
 
     with (
-      patch("docgate.logics.async_get_invite_code", new_callable=AsyncMock) as mock_get_code,
+      patch("docgate.logics.async_get_prepaid_code", new_callable=AsyncMock) as mock_get_code,
       patch("docgate.logics.async_create_free_user", new_callable=AsyncMock) as mock_create_free,
     ):
       mock_get_code.return_value = None
@@ -175,14 +175,14 @@ class TestCreateDbUserLogicAsyncCreateWithRedeeming:
   async def test_async_create_with_redeeming_code_not_redeemable(self, db_session, user_id, user_email, code):
     """Should create free user and raise exception when code is not redeemable"""
     # Arrange
-    mock_code_data = MagicMock(spec=InviteCodeModel)
+    mock_code_data = MagicMock(spec=PrepaidCodeModel)
     mock_code_data.redeemable_with_reason = (False, "expired")
 
     mock_free_user = MagicMock(spec=User)
     mock_free_user.id = user_id
 
     with (
-      patch("docgate.logics.async_get_invite_code", new_callable=AsyncMock) as mock_get_code,
+      patch("docgate.logics.async_get_prepaid_code", new_callable=AsyncMock) as mock_get_code,
       patch("docgate.logics.async_create_free_user", new_callable=AsyncMock) as mock_create_free,
     ):
       mock_get_code.return_value = mock_code_data
@@ -203,7 +203,7 @@ class TestCreateDbUserLogicAsyncCreateWithRedeeming:
   async def test_async_create_with_redeeming_success(self, db_session, user_id, user_email, code):
     """Should create paid user and return success when code is valid"""
     # Arrange
-    mock_code_data = MagicMock(spec=InviteCodeModel)
+    mock_code_data = MagicMock(spec=PrepaidCodeModel)
     mock_code_data.redeemable_with_reason = (True, None)
 
     mock_paid_user = MagicMock(spec=User)
@@ -211,8 +211,8 @@ class TestCreateDbUserLogicAsyncCreateWithRedeeming:
     mock_paid_user.tier = Tier.GOLD
 
     with (
-      patch("docgate.logics.async_get_invite_code", new_callable=AsyncMock) as mock_get_code,
-      patch("docgate.logics.async_create_user_with_redeeming_invite_code", new_callable=AsyncMock) as mock_create_paid,
+      patch("docgate.logics.async_get_prepaid_code", new_callable=AsyncMock) as mock_get_code,
+      patch("docgate.logics.async_create_user_with_redeeming_prepaid_code", new_callable=AsyncMock) as mock_create_paid,
     ):
       mock_get_code.return_value = mock_code_data
       mock_create_paid.return_value = mock_paid_user
@@ -225,5 +225,5 @@ class TestCreateDbUserLogicAsyncCreateWithRedeeming:
 
       # Verify paid user was created with correct parameters
       mock_create_paid.assert_called_once_with(
-        db_session, user_id=user_id, email=user_email, invite_code=mock_code_data
+        db_session, user_id=user_id, email=user_email, prepaid_code=mock_code_data
       )

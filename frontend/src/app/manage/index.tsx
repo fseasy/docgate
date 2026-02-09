@@ -1,12 +1,15 @@
 import { customizeAuthURL } from "../../supertokens/url";
 import { useClipboard, type CopyStatus } from "../../utils/frontendHooks";
-import { useGenInviteCode } from "./useGenInviteCode";
+import { useGenPrepaidCode } from "./useGenPrepaidCode";
 import ContentPageLayout from "../../component/ContentPageLayout";
+import { QUERY_KEYS } from "../../routes";
 
 export default function ManageDashboard() {
-  const { result: genCodeResult, generate: genCode } = useGenInviteCode();
+  const { result: genCodeResult, generate: genCode } = useGenPrepaidCode();
 
-  const makeInviteLink = (code: string) => customizeAuthURL({ show: "signup", queryParams: { ic: code } });
+  const makeInviteLink = (code: string) => customizeAuthURL({
+    show: "signup", queryParams: { [QUERY_KEYS.PREPAID_CODE]: code }
+  });
 
   const isIdleOrLoading =
     genCodeResult.status === "idle" ||
@@ -37,7 +40,7 @@ export default function ManageDashboard() {
       <div className='card bg-base-100 shadow-xl'>
         <div className='card-body space-y-4'>
           {/* 标题 */}
-          <h2 className='card-title text-xl'>生成邀请链接（预付款注册链接）</h2>
+          <h2 className='card-title text-xl'>生成预付款注册链接</h2>
 
           {/* 操作按钮 */}
           <div className='flex gap-5'>
@@ -46,7 +49,7 @@ export default function ManageDashboard() {
               onClick={genCode}
               disabled={genCodeResult.status === "loading"}
             >
-              {genCodeResult.status === "loading" ? "生成中…" : "生成新的邀请链接"}
+              {genCodeResult.status === "loading" ? "生成中…" : "生成新的链接"}
             </button>
             <button
               className='btn btn-secondary w-fit'
@@ -62,12 +65,12 @@ export default function ManageDashboard() {
           {/* 结果区 */}
           <div className='space-y-3'>
             <div>
-              <div className='text-sm text-gray-500'>邀请链接</div>
+              <div className='text-sm text-gray-500'>预付款链接</div>
               <div className='font-mono break-all'>{inviteCodeLink || "—"}</div>
             </div>
 
             <div>
-              <div className='text-sm text-gray-500'>邀请码</div>
+              <div className='text-sm text-gray-500'>预付款码</div>
               <div className='font-mono'>{inviteCodeStr || "—"}</div>
             </div>
 

@@ -15,11 +15,12 @@ from docgate.supertokens_config import StRole
 
 from . import config as config
 from .exceptions import InvalidUserInputException, LogicError, NotExistInDBException
-from .models import InviteCode as InviteCodeModel, PayLog, PayLogUnit, PayMethod, Tier, User
+from .models import PrepaidCode as PrepaidCodeModel, PayLog, PayLogUnit, PayMethod, Tier, User
 from .repositories import (
   async_create_free_user,
-  async_create_user_with_redeeming_invite_code,
-  async_get_invite_code,
+  async_create_paid_user_with_redeeming_prepaid_code,
+  async_create_paid_user_with_paywall,
+  async_get_prepaid_code,
   async_get_user,
   get_db_async_session_cxt,
 )
@@ -27,22 +28,22 @@ from .repositories import (
 logger = config.LOGGER
 
 
-class CodeBindUserAttr(BaseModel):
+class PaidUserAttr(BaseModel):
   tier: Tier
   tier_lifetime: None  # NOTE: currently only None type. we can use timedelta if necessary
-  pay_method: PayMethod
   pay_log_unit: PayLogUnit
+  pay_method_raw: PayMethod | None  # used for some api that need the raw value (because pay_log_unit only store str)
 
 
-class InviteCodeLogic(object):
+class PrepaidCodeLogic(object):
   @staticmethod
   def code_len():
-    return InviteCodeModel.CODE_LEN
+    return PrepaidCodeModel.CODE_LEN
 
   @staticmethod
-  def gen_invite_code():
+  def gen_prepaid_code():
     """Just use uuid to generate an invite code"""
-    code = str(uuid.uuid4()).replace("-", "")[: InviteCodeLogic.code_len()]
+    code = str(uuid.uuid4()).replace("-", "")[: PrepaidCodeLogic.code_len()]
     return code
 
   @staticmethod
@@ -54,11 +55,11 @@ class InviteCodeLogic(object):
     return base + timedelta(days=EXPIRE_DAYS)
 
   @staticmethod
-  def get_successful_binding_user_attr(code: str) -> CodeBindUserAttr:
-    log = f"Redeem invite-code({code})"
-    pay_log_unit = PayLogUnit(log=log, is_success=True, method=PayMethod.INVITE_CODE.name)
-    return CodeBindUserAttr(
-      tier=Tier.GOLD, tier_lifetime=None, pay_method=PayMethod.INVITE_CODE, pay_log_unit=pay_log_unit
+  def get_successful_binding_user_attr(code: str) -> PaidUserAttr:
+    log = f"预付款码验证成功({code})"
+    pay_log_unit = PayLog.create_new_unit(log=log, is_success=True, method=PayMethod.PREPAID_CODE)
+    return PaidUserAttr(
+      tier=Tier.GOLD, tier_lifetime=None, pay_log_unit=pay_log_unit, pay_method_raw=PayMethod.PREPAID_CODE
     )
 
   @staticmethod
@@ -68,28 +69,64 @@ class InviteCodeLogic(object):
     - known: InvalidUserInputException: code not exists in db; code isn't redeemable
     - unknown: any
     """
-    code_data = await async_get_invite_code(db_session, code=code, for_update=True)
+    code_data = await async_get_prepaid_code(db_session, code=code, for_update=True)
     # first check code data
     _check_msg = f"麻烦检查输入无误后联系{config.CONTENT_AUTHOR_NAME}"
     if not code_data:
       log_str = "预付款码不存在"
-      db_user.add_paylog(log_str, method=PayMethod.INVITE_CODE, is_success=False)
+      db_user.add_paylog(log_str, method=PayMethod.PREPAID_CODE, is_success=False)
       raise InvalidUserInputException(f"code [{code}] not found in db", user_msg=f"{log_str}，{_check_msg}")
     is_redeemable, err_reason = code_data.redeemable_with_reason
     if not is_redeemable:
       log_str = "预付款码已失效"
-      db_user.add_paylog(log_str, method=PayMethod.INVITE_CODE, is_success=False)
+      db_user.add_paylog(log_str, method=PayMethod.PREPAID_CODE, is_success=False)
       raise InvalidUserInputException(
         f"code [{code}] isn't redeemable, reason={err_reason}", user_msg=f"{log_str}，{_check_msg}"
       )
     code_data.do_binding(db_user.id)
-    ua = InviteCodeLogic.get_successful_binding_user_attr(code)
+    ua = PrepaidCodeLogic.get_successful_binding_user_attr(code)
     db_user.tier = ua.tier
     db_user.tier_lifetime = ua.tier_lifetime
     log_str = f"验证预付款码成功[{code}]"
-    db_user.add_paylog(log_str, method=PayMethod.INVITE_CODE, is_success=True)
+    db_user.add_paylog(log_str, method=PayMethod.PREPAID_CODE, is_success=True)
     db_user.last_active_at = datetime.now(tz=timezone.utc)
     db_session.add(code_data)
+
+
+class PaywallLogic(object):
+  @staticmethod
+  async def set_db_user_paid(db_session: AsyncSession, user_id: str, email: str) -> None:
+    """Exception: any possible"""
+    db_user = await async_get_user(db_session, user_id=user_id, for_update=True)
+    if not db_user:
+      logger.warning("Paywall: set paid user while user not exist in our db. create new!")
+      await async_create_paid_user_with_paywall(db_session, user_id=user_id, email=email)
+      return
+    user_attr = PaywallLogic.get_paid_user_attr()
+    db_user.tier = user_attr.tier
+    db_user.tier_lifetime = user_attr.tier_lifetime
+    log = user_attr.pay_log_unit
+    db_user.add_paylog(log_str=log.log, method=user_attr.pay_method_raw, is_success=log.is_success)
+    db_session.add(db_user)
+
+  @staticmethod
+  async def set_db_user_pay_failed(db_session: AsyncSession, user_id: str, email: str) -> None:
+    """Add a failed pay log to db user. if user not exist in db, will create 1 free user.
+    Exception: any possible"""
+    LOG_STR = "自助购买未完成"
+    db_user = await async_get_user(db_session, user_id=user_id, for_update=True)
+    if not db_user:
+      logger.warning("Paywall: set user pay failed while user not exist in our db. create new!")
+      pay_log_unit = PayLog.create_new_unit(log=LOG_STR, method=PayMethod.PAYWALL, is_success=False)
+      await async_create_free_user(db_session, user_id=user_id, email=email, pay_log_unit=pay_log_unit)
+      return
+    db_user.add_paylog(log_str=LOG_STR, method=PayMethod.PAYWALL, is_success=False)
+    db_session.add(db_user)
+
+  @staticmethod
+  def get_paid_user_attr() -> PaidUserAttr:
+    log_unit = PayLog.create_new_unit(log="自助购买", method=PayMethod.PAYWALL, is_success=True)
+    return PaidUserAttr(tier=Tier.GOLD, tier_lifetime=None, pay_log_unit=log_unit, pay_method_raw=PayMethod.PAYWALL)
 
 
 class UserPermissionLogic(object):
@@ -138,7 +175,7 @@ def validate_password(value: str) -> str | None:
 
 
 class FormFieldId(StrEnum):
-  INVITE_CODE = "invite-code"
+  PREPAID_CODE = "prepaid-code"
 
 
 class CreateUserStatus(StrEnum):
@@ -149,11 +186,11 @@ class CreateUserStatus(StrEnum):
     "Create user failed since supertokens don't contain expected user data(.emails is empty)"
   )
   # create user success, while redeem failed
-  REDEEM_FAILED_ON_NO_INVITE_CODE_IN_FORM_INPUT = (
-    "Redeem failed as form input doesn't contain invite-code, free user created."
+  REDEEM_FAILED_ON_NO_PREPAID_CODE_IN_FORM_INPUT = (
+    "Redeem failed as form input doesn't contain prepaid-code, free user created."
   )
-  REDEEM_FAILED_ON_INVITE_CODE_INVALID = (
-    "Redeem failed as form input invite-code not found in DB or unredeemable, free user created."
+  REDEEM_FAILED_ON_PREPAID_CODE_INVALID = (
+    "Redeem failed as form input prepaid-code not found in DB or unredeemable, free user created."
   )
   # internal error. If transaction works, user hasn't been created and code hasn't been redeemed.
   INTERNAL_UNEXPECTED_ERROR = "Internal code unexpected failure, transaction rollback is expected."
@@ -169,56 +206,56 @@ class CreateDbUserLogic(object):
     - known: InvalidUserInputException: code not exists in db/ unredeemable
     - unknown: any possible exceptions
     """
-    code_data = await async_get_invite_code(db_session, code_str, for_update=True)
+    code_data = await async_get_prepaid_code(db_session, code_str, for_update=True)
     if not code_data:
-      pay_log_unit = PayLogUnit(method=PayMethod.INVITE_CODE.name, log="预付款码不存在", is_success=False)
+      pay_log_unit = PayLog.create_new_unit(method=PayMethod.PREPAID_CODE, log="预付款码不存在", is_success=False)
       db_user = await async_create_free_user(db_session, user_id=user_id, email=user_email, pay_log_unit=pay_log_unit)
       pay_log_info = f"RedeemCode Fail: code=[{code_str}] wasn't exist in DB"
       logger.warning(f"{pay_log_info}. Free user [{db_user}] created.")
       raise InvalidUserInputException(pay_log_info, user_msg=pay_log_unit.log)
     is_redeemable, reason = code_data.redeemable_with_reason
     if not is_redeemable:
-      pay_log_unit = PayLogUnit(method=PayMethod.INVITE_CODE.name, log="预付款码失效", is_success=False)
+      pay_log_unit = PayLog.create_new_unit(method=PayMethod.PREPAID_CODE, log="预付款码失效", is_success=False)
       db_user = await async_create_free_user(db_session, user_id=user_id, email=user_email, pay_log_unit=pay_log_unit)
       pay_log_info = f"RedeemCode Fail: unredeemable code=[{code_str}], reason={reason}"
       logger.warning(f"{pay_log_info}. Free user [{db_user}] created.")
       raise InvalidUserInputException(pay_log_info, user_msg=pay_log_unit.log)
-    db_user = await async_create_user_with_redeeming_invite_code(
-      db_session, user_id=user_id, email=user_email, invite_code=code_data
+    db_user = await async_create_paid_user_with_redeeming_prepaid_code(
+      db_session, user_id=user_id, email=user_email, prepaid_code=code_data
     )
     logger.info(f"RedeemCode Success: redeem code=[{code_str}]. Paid user [{db_user}] created.")
     return CreateUserStatus.CREATE_AND_REDEEM_SUCCESS
 
   @staticmethod
   async def async_create_after_supertokens_signup(user: StUser, form_fields: list[FormField]) -> CreateUserStatus:
-    """Create user with redeeming invite-code in our side, after supertokens' sign-up success.
+    """Create user with redeeming prepaid-code in our side, after supertokens' sign-up success.
     Exception: No exception, just return the status
 
     Used in supertokens post-signup override.
 
-    NOTE: If invite-code is invalid, we'll fallback to create a free user without error.
+    NOTE: If prepaid-code is invalid, we'll fallback to create a free user without error.
     """
 
     async def _logic(db_session: AsyncSession) -> CreateUserStatus:
       user_email = user.emails[0]
-      invite_code_field: FormField | None = None
+      prepaid_code_field: FormField | None = None
       for f in form_fields:
-        if f.id == FormFieldId.INVITE_CODE:
-          invite_code_field = f
+        if f.id == FormFieldId.PREPAID_CODE:
+          prepaid_code_field = f
           break
-      if invite_code_field is None:
-        pay_log_unit = PayLogUnit(method="", log="无支付", is_success=False)
+      if prepaid_code_field is None:
+        pay_log_unit = PayLog.create_new_unit(method=None, log="无支付", is_success=False)
         db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email, pay_log_unit=pay_log_unit)
         logger.warning(f"Code: Form field not found! Free user [{db_user}] created.")
-        return CreateUserStatus.REDEEM_FAILED_ON_NO_INVITE_CODE_IN_FORM_INPUT
-      invite_code_str = invite_code_field.value.strip()
-      if not invite_code_str:
-        pay_log_unit = PayLogUnit(method="", log="无支付", is_success=False)
+        return CreateUserStatus.REDEEM_FAILED_ON_NO_PREPAID_CODE_IN_FORM_INPUT
+      prepaid_code_str = prepaid_code_field.value.strip()
+      if not prepaid_code_str:
+        pay_log_unit = PayLog.create_new_unit(method=None, log="无支付", is_success=False)
         db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email, pay_log_unit=pay_log_unit)
         logger.warning(f"Code: From field value is empty! Free user [{db_user}] created.")
-        return CreateUserStatus.REDEEM_FAILED_ON_NO_INVITE_CODE_IN_FORM_INPUT
+        return CreateUserStatus.REDEEM_FAILED_ON_NO_PREPAID_CODE_IN_FORM_INPUT
       return await CreateDbUserLogic.async_create_with_redeeming(
-        db_session=db_session, user_id=user.id, user_email=user_email, code_str=invite_code_str
+        db_session=db_session, user_id=user.id, user_email=user_email, code_str=prepaid_code_str
       )
 
     if not user.emails:
@@ -228,7 +265,7 @@ class CreateDbUserLogic(object):
       async with get_db_async_session_cxt() as db_session:
         return await _logic(db_session)
     except InvalidUserInputException:
-      return CreateUserStatus.REDEEM_FAILED_ON_INVITE_CODE_INVALID
+      return CreateUserStatus.REDEEM_FAILED_ON_PREPAID_CODE_INVALID
     except Exception as e:
       logger.error(
         f"Failed to create user with unexpected internal error, user={user.to_json()}. "

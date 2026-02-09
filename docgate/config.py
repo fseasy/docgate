@@ -53,9 +53,15 @@ API_DOMAIN = os.environ["VITE_API_DOMAIN"]
 API_COMMON_BASE_PATH = normalize_fastapi_base_path(os.environ["VITE_API_COMMON_BASE_PATH"])
 API_AUTH_BASE_PATH = os.environ["VITE_API_AUTH_BASE_PATH"]
 WEBSITE_DOMAIN = os.environ["VITE_WEBSITE_DOMAIN"]
+WEBSITE_REACT_BASE_PATH = os.environ["VITE_WEBSITE_REACT_BASE_PATH"]
 WEBSITE_AUTH_BASE_PATH = os.environ["VITE_WEBSITE_AUTH_BASE_PATH"]
+STRIPE_RETURN_ROUTE_PATH = os.environ["VITE_STRIPE_RETURN_ROUTE_PATH"]
+
 SUPERTOKENS_CONNECTION_URI = os.environ["SUPERTOKENS_CONNECTION_URI"]
 SUPERTOKENS_API_KEY = os.environ["SUPERTOKENS_API_KEY"]
+STRIPE_API_KEY = os.environ["STRIPE_API_KEY"]
+STRIP_PRICE_ID = os.environ["STRIPE_PRICE_ID"]
+STRIP_ENDPOINT_SECRET = os.environ["STRIPE_ENDPOINT_SECRET"]
 
 _SupabaseConfT = namedtuple("_SupabaseConfT", ["host", "port", "user", "passwd", "dbname"])
 SUPABASE_CONF = _SupabaseConfT(
@@ -86,4 +92,14 @@ def get_st_auth_page_full_url(show: Literal["signin", "signup"], redirect: str |
   if redirect:
     q["redirectToPath"] = redirect
   u = u.with_query(q)
+  return str(u)
+
+
+def get_website_full_url(sub_path: str, query_params: dict[str, str] | None = None) -> str:
+  from yarl import URL
+
+  no_leading_slash_sub_path = sub_path.lstrip("/")
+  u = URL(WEBSITE_DOMAIN) / no_leading_slash_sub_path
+  if query_params:
+    u = u.with_query(query_params)
   return str(u)

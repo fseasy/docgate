@@ -16,19 +16,19 @@
 
 #### 2. 请求格式
 ```python
-class UserBindInviteCodeReq(BaseModel):
-  invite_code: str  # 邀请码，自动去除首尾空格，最小长度为1
+class UserBindPrepaidCodeReq(BaseModel):
+  prepaid_code: str  # 邀请码，自动去除首尾空格，最小长度为1
 ```
 
 #### 3. 响应格式
 ```python
-class UserBindInviteCodeResp(BaseModel):
+class UserBindPrepaidCodeResp(BaseModel):
   error: str | None  # None 表示成功，否则包含错误信息
 ```
 
 #### 4. 核心逻辑 (`docgate/logics.py`)
 
-`InviteCode.binding()` 方法执行以下步骤：
+`PrepaidCode.binding()` 方法执行以下步骤：
 
 1. **验证邀请码**
    - 从数据库查询邀请码（使用 `for_update` 锁定行）
@@ -46,14 +46,14 @@ class UserBindInviteCodeResp(BaseModel):
 3. **执行绑定**
    - 标记邀请码为已使用
    - 更新用户权限等级为 GOLD
-   - 设置支付方式为 INVITE_CODE
+   - 设置支付方式为 PREPAID_CODE
    - 记录支付日志
    - 更新用户最后活跃时间
    - 提交数据库事务
 
 #### 5. 数据模型 (`docgate/models.py`)
 
-**InviteCode 表**:
+**PrepaidCode 表**:
 ```python
 - id: int (主键)
 - code: str (邀请码，长度10，有索引)
@@ -84,7 +84,7 @@ const API_ROUTES = {
 
 #### 2. API 函数 (`frontend/src/utils/api.ts`)
 ```typescript
-export const bindInviteCode = async (inviteCode: string): Promise<BindInviteCodeResult>
+export const bindPrepaidCode = async (inviteCode: string): Promise<BindPrepaidCodeResult>
 ```
 
 功能：
@@ -133,11 +133,11 @@ export const bindInviteCode = async (inviteCode: string): Promise<BindInviteCode
 ### 常见错误场景
 
 1. **邀请码不存在**
-   - 错误信息：`invite-code [xxx] not found in db`
+   - 错误信息：`prepaid-code [xxx] not found in db`
    - 原因：输入的邀请码未在系统中生成
 
 2. **邀请码不可用**
-   - 错误信息：`invite-code [xxx] can't been bind, reason=[...]`
+   - 错误信息：`prepaid-code [xxx] can't been bind, reason=[...]`
    - 可能原因：
      - 邀请码已被使用
      - 邀请码已过期（超过14天）
@@ -189,7 +189,7 @@ export const bindInviteCode = async (inviteCode: string): Promise<BindInviteCode
 curl -X POST http://localhost:8000/user/purchase-by-code \
   -H "Content-Type: application/json" \
   -H "Cookie: your-session-cookie" \
-  -d '{"invite_code": "test123456"}'
+  -d '{"prepaid_code": "test123456"}'
 ```
 
 ### 前端测试

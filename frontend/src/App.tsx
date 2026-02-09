@@ -15,6 +15,8 @@ import "./App.css";
 const ManageDashboard = lazy(() => import("./app/manage"));
 const Dashboard = lazy(() => import("./app/dashboard"));
 const Purchase = lazy(() => import("./app/purchase"));
+const StripeCheckout = lazy(() => import("./app/stripe/checkout"));
+const StripeReturn = lazy(() => import("./app/stripe/return"));
 const GoDocs = lazy(() => import("./app/jump-out-spa"));
 const NotFoundPage = lazy(() => import("./app/not-found-page"));
 
@@ -29,7 +31,22 @@ function App() {
               reactRouterDom,
               [EmailPasswordPreBuiltUI, EmailVerificationPreBuiltUI]
             )}
-
+            <Route
+              path={ROUTES.STRIPE_RETURN}
+              element={
+                <SessionAuth>
+                  <StripeReturn />
+                </SessionAuth>
+              }
+            />
+            <Route
+              path={ROUTES.STRIPE_CHECKOUT}
+              element={
+                <SessionAuth>
+                  <StripeCheckout />
+                </SessionAuth>
+              }
+            />
             {/* This protects the "/dashboard" route so that it shows
                 <Dashboard /> only if the user is logged in.
                 Else it redirects the user to "/auth" 

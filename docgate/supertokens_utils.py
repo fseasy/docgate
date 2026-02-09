@@ -71,3 +71,20 @@ def verify_session_with_admin_role():
     # We add the UserRoleClaim's includes validator
     override_global_claim_validators=new_validator
   )
+
+
+async def async_send_email(subject: str, body: str, is_html: bool, target_email: str) -> None:
+  """Use this after Init-supertokens"""
+  from supertokens_python.ingredients.emaildelivery.types import EmailContent
+  from supertokens_python.recipe import emailpassword
+
+  from .supertokens_config import _get_smtp_settings
+
+  smtp_service = emailpassword.SMTPService(smtp_settings=_get_smtp_settings())
+  content = EmailContent(
+    subject=subject,
+    body=body,
+    to_email=target_email,
+    is_html=is_html,
+  )
+  await smtp_service.service_implementation.transporter.send_email(content, {})

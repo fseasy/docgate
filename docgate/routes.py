@@ -1,9 +1,9 @@
 import traceback
-from typing import Annotated, Any
 from datetime import datetime
+from typing import Annotated, Any
 
+import stripe
 from fastapi import APIRouter, Depends, Request, Response
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,9 +14,9 @@ from supertokens_python.recipe.userroles import UserRoleClaim
 
 from docgate import config
 from docgate.exceptions import InvalidUserInputException, LogicError
-from docgate.logics import CreateDbUserLogic, CreateUserStatus, InviteCodeLogic, UserPermissionLogic
+from docgate.logics import CreateDbUserLogic, PrepaidCodeLogic, UserPermissionLogic
 from docgate.models import PayLog, Tier
-from docgate.repositories import async_create_invite_code, async_get_user, get_db_async_session
+from docgate.repositories import async_create_prepaid_code, async_get_user, get_db_async_session
 from docgate.supertokens_config import StRole
 from docgate.supertokens_utils import async_get_user as get_st_user
 
@@ -81,21 +81,20 @@ async def get_current_user_db_info(
       email=st_user.emails[0] if st_user.emails else "-",
       created_at=datetime.fromtimestamp(st_user.time_joined // 1000).isoformat(),
     )
-  tier_map = {Tier.FREE: "免费", Tier.GOLD: "付费", Tier.INTERNAL: "内部用户", Tier.INTERNAL_MANAGER: "管理员"}
   return UserResp(
     id=uid,
     email=user.email,
     created_at=user.created_at.isoformat(),
-    tier=tier_map[user.tier],
+    tier=user.tier.locale_name(),
     tier_lifetime=user.tier_lifetime.isoformat() if user.tier_lifetime else "永久",
     pay_log=PayLog.from_db_str(user.pay_log),
   )
 
 
 class PurchaseByCodeReq(BaseModel):
-  invite_code: Annotated[
+  prepaid_code: Annotated[
     str,
-    Field(description="invite-code, or pre-pay code"),
+    Field(description="prepaid-code, or pre-pay code"),
     StringConstraints(strip_whitespace=True, min_length=1),
   ]
 
@@ -112,7 +111,7 @@ async def user_purchase_by_code(
 ) -> PurchaseByCodeResp:
   """bind code to user, then add doc-reading permission"""
   uid = session.user_id
-  code = req.invite_code
+  code = req.prepaid_code
   try:
     db_user = await async_get_user(db_session, user_id=uid, for_update=True)
     if not db_user:
@@ -123,11 +122,11 @@ async def user_purchase_by_code(
         db_session=db_session, user_id=uid, user_email=st_user.emails[0], code_str=code
       )
     else:
-      await InviteCodeLogic.binding_db_user(db_session=db_session, db_user=db_user, code=code)
+      await PrepaidCodeLogic.binding_db_user(db_session=db_session, db_user=db_user, code=code)
   except InvalidUserInputException as e:
     return PurchaseByCodeResp(fail_reason=e.user_msg)
   except Exception as e:
-    err = f"[api]: BindInviteCode get errors: err={e}, stack={traceback.format_exc()}"
+    err = f"[api]: BindPrepaidCode get errors: err={e}, stack={traceback.format_exc()}"
     logger.error(f"{err}")
     return PurchaseByCodeResp(fail_reason=err)
   # set permission
@@ -139,33 +138,35 @@ async def user_purchase_by_code(
   return PurchaseByCodeResp(fail_reason=None)
 
 
-class InviteResult(BaseModel):
+class GenPrepaidCodeResp(BaseModel):
   error: str | None
   code: str | None
   lifetime: str | None
 
 
-@admin_router.post("/gen-invite-code")
-async def gen_invite(
+@admin_router.post("/gen-prepaid-code")
+async def gen_prepaid_code(
   session: SessionContainer = Depends(verify_session()), db_session: AsyncSession = Depends(get_db_async_session)
-) -> InviteResult:
-  """generate invite-code, record it to table"""
+) -> GenPrepaidCodeResp:
+  """generate prepaid-code, record it to table"""
 
   async def _logic():
     user_id = session.get_user_id()
     # We use Supertokens' User Role to control the permission
     roles = await session.get_claim_value(UserRoleClaim)
     if roles is None or StRole.ADMIN not in roles:
-      return InviteResult(error=f"user [{user_id}] didn't have admin role. roles={roles}", code=None, lifetime=None)
-    invite_code = InviteCodeLogic.gen_invite_code()
-    lifetime = InviteCodeLogic.calc_lifetime()
-    await async_create_invite_code(db_session, invite_code, lifetime)
-    return InviteResult(error=None, code=invite_code, lifetime=lifetime.strftime("%Y-%m-%d %H:%M:%S %z"))
+      return GenPrepaidCodeResp(
+        error=f"user [{user_id}] didn't have admin role. roles={roles}", code=None, lifetime=None
+      )
+    prepaid_code = PrepaidCodeLogic.gen_prepaid_code()
+    lifetime = PrepaidCodeLogic.calc_lifetime()
+    await async_create_prepaid_code(db_session, prepaid_code, lifetime)
+    return GenPrepaidCodeResp(error=None, code=prepaid_code, lifetime=lifetime.strftime("%Y-%m-%d %H:%M:%S %z"))
 
   try:
     return await _logic()
   except Exception as e:
-    return InviteResult(error=str(e), code=None, lifetime=None)
+    return GenPrepaidCodeResp(error=str(e), code=None, lifetime=None)
 
 
 @internal_auth_router.get("/check")
@@ -220,7 +221,6 @@ async def refresh_session_or_signin(request: Request):
     return raw_query[pos + len(SIG) :]
 
   redirect_url = _hacking_get_redirect_url()
-  print(">>>>>>> REDIRECT path: ", redirect_url)
   try:
     await refresh_session(request)
     logger.info(f"refresh-session: Successfully refresh session, redirect to {redirect_url}")

@@ -2,20 +2,24 @@ from datetime import datetime, timezone
 from enum import IntEnum
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, NullPool, String, Text, TypeDecorator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from .config import LOGGER as logger, env
 from .exceptions import LogicError
-from .utils import safe_getattr, safe_strftime
+from .utils import safe_strftime
 
 
 # Define enums
 class PayMethod(IntEnum):
-  INVITE_CODE = 0
+  PREPAID_CODE = 0
   PAYWALL = 1
+
+  def locale_name(self) -> str:
+    m = {PayMethod.PREPAID_CODE: "预付款码", PayMethod.PAYWALL: "页面自购"}
+    return m[self]
 
 
 class Tier(IntEnum):
@@ -23,6 +27,10 @@ class Tier(IntEnum):
   INTERNAL = 1
   FREE = 2
   GOLD = 3
+
+  def locale_name(self) -> str:
+    tier_map = {Tier.FREE: "免费", Tier.GOLD: "付费", Tier.INTERNAL: "内部用户", Tier.INTERNAL_MANAGER: "管理员"}
+    return tier_map[self]
 
 
 # def _get_sqlite_db_async_path() -> str:
@@ -112,28 +120,33 @@ class DbBaseModel(DeclarativeBase):
   pass
 
 
-USER_TABLE_NAME_WITH_ENV = f"users_{env.value}"
-INVITE_TABLE_NAME_WITH_ENV = f"invite_codes_{env.value}"
-
-
 class PayLogUnit(BaseModel):
+  """Please use `PayLog.create_new_unit` to create new instance as it will accept the enum"""
+
   method: str | None  # directly store the name to save space.
   log: str
   is_success: bool
-  date: str = Field(description="UTC iso timestamp str", default_factory=datetime.now(tz=timezone.utc).isoformat)
+  date: str
 
 
 class PayLog(BaseModel):
   logs: list[PayLogUnit]
 
   def add_new(self, log: str, method: PayMethod | None, is_success: bool) -> PayLogUnit:
-    method_name = method.name if method else None
-    new_unit = PayLogUnit(log=log, method=method_name, is_success=is_success)
+    new_unit = self.create_new_unit(log, method=method, is_success=is_success)
     self.logs.append(new_unit)
     return new_unit
 
   def to_db_str(self) -> str:
     return self.model_dump_json(indent=None, ensure_ascii=False)
+
+  @classmethod
+  def create_new_unit(cls, log: str, method: PayMethod | None, is_success: bool) -> PayLogUnit:
+    method_name = method.locale_name() if method is not None else None
+    new_unit = PayLogUnit(
+      log=log, method=method_name, is_success=is_success, date=datetime.now(tz=timezone.utc).isoformat()
+    )
+    return new_unit
 
   @classmethod
   def from_db_str(cls, log_str: str | None) -> "PayLog":
@@ -151,12 +164,15 @@ class PayLog(BaseModel):
 
   @classmethod
   def db_add_new2current(
-    cls, current_log_serialized_str: str | None, new_log_str: str, method: PayMethod, is_success: bool
+    cls, current_log_serialized_str: str | None, new_log_str: str, method: PayMethod | None, is_success: bool
   ) -> str:
     """A helper function for db: Deserialize the current log and append new, then serialize to str"""
     cur_log = cls.from_db_str(current_log_serialized_str)
-    cur_log.add_new(new_log_str, method, is_success)
+    cur_log.add_new(new_log_str, method=method, is_success=is_success)
     return cur_log.to_db_str()
+
+
+USER_TABLE_NAME_WITH_ENV = f"users_{env.value}"  # add a env suffix due to no env independent db
 
 
 class User(DbBaseModel):
@@ -182,8 +198,8 @@ class User(DbBaseModel):
   pay_log: Mapped[str] = mapped_column(Text, default="")  # log for payment (success, error, history)
   # currently it's always None because it's always lifelong
 
-  # one user may have 0/multiple invite-codes (in the future>>>). only relationship in ORM level
-  invite_codes: Mapped[list["InviteCode"]] = relationship(
+  # one user may have 0/multiple prepaid-codes (in the future>>>). only relationship in ORM level
+  prepaid_codes: Mapped[list["PrepaidCode"]] = relationship(
     back_populates="bind_user",
     passive_deletes=True,  # Let the db `SET NULL`
   )
@@ -197,7 +213,7 @@ class User(DbBaseModel):
       f", pay_log=[{self.pay_log}]"
     )
 
-  def add_paylog(self, log_str: str, method: PayMethod, is_success: bool) -> str:
+  def add_paylog(self, log_str: str, method: PayMethod | None, is_success: bool) -> str:
     new_log = PayLog.db_add_new2current(self.pay_log, log_str, method=method, is_success=is_success)
     self.pay_log = new_log
     return new_log
@@ -215,7 +231,10 @@ class User(DbBaseModel):
     return cnt
 
 
-class InviteCode(DbBaseModel):
+INVITE_TABLE_NAME_WITH_ENV = f"prepaid_codes_{env.value}"
+
+
+class PrepaidCode(DbBaseModel):
   __tablename__ = INVITE_TABLE_NAME_WITH_ENV
 
   CODE_LEN = 10
@@ -231,7 +250,7 @@ class InviteCode(DbBaseModel):
     index=True,
   )
 
-  bind_user: Mapped[User | None] = relationship(back_populates="invite_codes")
+  bind_user: Mapped[User | None] = relationship(back_populates="prepaid_codes")
 
   def do_binding(self, user_id: str) -> None:
     self.has_used = True
@@ -249,7 +268,7 @@ class InviteCode(DbBaseModel):
   def __str__(self) -> str:
     # no relationship print
     return (
-      f"InviteCode(id=[{self.id}], code=[{self.code}], lifetime=[{safe_strftime(self.lifetime)}], "
+      f"PrepaidCode(id=[{self.id}], code=[{self.code}], lifetime=[{safe_strftime(self.lifetime)}], "
       f"has_used=[{self.has_used}], bind_user_id=[{self.bind_user_id}])"
     )
 

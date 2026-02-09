@@ -14,7 +14,8 @@ export default function NotFoundPage() {
     const isInSPA = isPathPrefixBelongsToSPA(pathname);
     if (isInSPA) {
       // navigate to dashboard directly
-      navigate(ROUTES.DASHBOARD);
+      setTimeout(() => { navigate(ROUTES.DASHBOARD); }, 1000);
+
     } else {
 
       const fullUrl = window.location.href;
@@ -23,7 +24,8 @@ export default function NotFoundPage() {
       );
       // go to that page by jump out of spa. => NOTE, we directly set it to the whole href.
       const jumpUrl = JumpOutSPARouteLogic.genRedirectRelativeURL(fullUrl);
-      navigate(jumpUrl);
+
+      setTimeout(() => { navigate(jumpUrl); }, 1000);
     }
   }, []);
 

@@ -139,7 +139,7 @@ def _init_emailpassword():
     sign_up_feature=emailpassword.InputSignUpFeature(
       form_fields=[
         InputFormField(id="password", validate=_validate_password),
-        InputFormField(id=FormFieldId.INVITE_CODE.value, optional=True),
+        InputFormField(id=FormFieldId.PREPAID_CODE.value, optional=True),
         InputFormField(id="confirm-password"),
       ]
     ),

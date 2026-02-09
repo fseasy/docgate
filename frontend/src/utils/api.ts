@@ -47,7 +47,7 @@ export const fetchSessionSupertokensUserById = async (): Promise<StUser | null> 
 };
 
 /** for both raw & api function response */
-type InviteCodeResult =
+type PrepaidCodeResult =
   | {
     error: string;
   }
@@ -57,9 +57,9 @@ type InviteCodeResult =
     lifetime: string;
   };
 
-export const genInviteCode = async (): Promise<InviteCodeResult> => {
+export const genPrepaidCode = async (): Promise<PrepaidCodeResult> => {
   try {
-    const apiUrl = getApiURL("GEN_INVITE_CODE");
+    const apiUrl = getApiURL("GEN_PREPAID_CODE");
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,7 +68,7 @@ export const genInviteCode = async (): Promise<InviteCodeResult> => {
     if (!response.ok) {
       throw new Error(`Failed on api call, err=${response}`);
     }
-    const data: InviteCodeResult = await response.json();
+    const data: PrepaidCodeResult = await response.json();
     if (data.error !== null) {
       throw new Error(`Failed on server side, err=${data.error}`);
     }
@@ -76,7 +76,7 @@ export const genInviteCode = async (): Promise<InviteCodeResult> => {
   } catch (error) {
     const errMsg =
       error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error in Frontend";
-    console.log(`genInviteCode failed: ${errMsg}`);
+    console.log(`genPrepaidCode failed: ${errMsg}`);
 
     return { error: errMsg };
   }
@@ -97,7 +97,7 @@ export const purchaseByCode = async (inviteCode: string): Promise<PurchaseByCode
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ invite_code: inviteCode }),
+      body: JSON.stringify({ prepaid_code: inviteCode }),
     });
     if (!response.ok) {
       throw new Error(`Failed on api call, status=${response.status}`);
@@ -106,7 +106,7 @@ export const purchaseByCode = async (inviteCode: string): Promise<PurchaseByCode
     return data;
   } catch (error) {
     const errMsg = `Unexpected error: ${error}`;
-    console.log(`bindInviteCode failed: ${errMsg}`);
+    console.log(`bindPrepaidCode failed: ${errMsg}`);
     return { fail_reason: errMsg };
   }
 };
@@ -160,3 +160,31 @@ export const fetchUserDbInfo = async (): Promise<UserDbInfo | null> => {
 };
 
 
+type PaywallAfterPayResult = {
+  fail_reason: string | null;
+};
+
+/**
+ * Call Paywall After-Pay process.
+ * No exception will be throw. error will be recorded to fail_reason
+ */
+export const paywallAfterPayProcess = async (email: string): Promise<PaywallAfterPayResult> => {
+  try {
+    const apiUrl = getApiURL("STRIPE_AFTER_PAY");
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ target_email: email }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed on api call, status=${response.status}`);
+    }
+    const data: PaywallAfterPayResult = await response.json();
+    return data;
+  } catch (error) {
+    const errMsg = `Unexpected error: ${error}`;
+    console.log(`bindPrepaidCode failed: ${errMsg}`);
+    return { fail_reason: errMsg };
+  }
+};

@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import (
   AsyncSessionLocal,
-  InviteCode,
   PayLog,
   PayLogUnit,
   PayMethod,
+  PrepaidCode,
   Tier,
   User,
   create_all_tables,
@@ -58,13 +58,13 @@ async def async_create_user(
   return u
 
 
-async def async_create_user_with_redeeming_invite_code(
-  session: AsyncSession, *, user_id: str, email: str, invite_code: InviteCode, do_commit: bool = False
+async def async_create_paid_user_with_redeeming_prepaid_code(
+  session: AsyncSession, *, user_id: str, email: str, prepaid_code: PrepaidCode, do_commit: bool = False
 ) -> User:
   """business logic"""
-  from .logics import InviteCodeLogic as ICLogic
+  from .logics import PrepaidCodeLogic as ICLogic
 
-  user_bind_attr = ICLogic.get_successful_binding_user_attr(invite_code.code)
+  user_bind_attr = ICLogic.get_successful_binding_user_attr(prepaid_code.code)
   pay_log = PayLog(logs=[user_bind_attr.pay_log_unit])
   # !NOTE: don't `with session.begin():`
   # use this may raise exception: A transaction is already begun on this Session.
@@ -78,8 +78,30 @@ async def async_create_user_with_redeeming_invite_code(
     pay_log=pay_log,
     do_commit=False,  # will do final commit
   )
-  invite_code.do_binding(user_id)
-  session.add(invite_code)
+  prepaid_code.do_binding(user_id)
+  session.add(prepaid_code)
+  if do_commit:
+    await session.commit()
+  return user
+
+
+async def async_create_paid_user_with_paywall(
+  session: AsyncSession, *, user_id: str, email: str, do_commit: bool = False
+) -> User:
+  """business logic"""
+  from .logics import PaywallLogic
+
+  user_attr = PaywallLogic.get_paid_user_attr()
+  pay_log = PayLog(logs=[user_attr.pay_log_unit])
+  user = await async_create_user(
+    session,
+    user_id=user_id,
+    email=email,
+    tier=user_attr.tier,
+    tier_lifetime=user_attr.tier_lifetime,
+    pay_log=pay_log,
+    do_commit=False,  # will do final commit
+  )
   if do_commit:
     await session.commit()
   return user
@@ -115,27 +137,27 @@ async def async_delete_user(session: AsyncSession, user_id: str) -> str | None:
   u = await async_get_user(session, user_id)
   if not u:
     return f"Delete user(id={user_id}) failed due to it doesn't exist in our db"
-  await session.delete(u)  # will unbind invite-codes user id.
+  await session.delete(u)  # will unbind prepaid-codes user id.
 
 
-async def async_create_invite_code(
+async def async_create_prepaid_code(
   session: AsyncSession, code: str, lifetime: datetime, do_commit: bool = False
-) -> InviteCode:
+) -> PrepaidCode:
   assert lifetime.tzinfo, f"Lifetime tzinfo is None in lifetime: {lifetime}"
-  code_data = InviteCode(code=code, lifetime=lifetime, has_used=False)
+  code_data = PrepaidCode(code=code, lifetime=lifetime, has_used=False)
   session.add(code_data)
   if do_commit:
     await session.commit()
   return code_data
 
 
-async def async_get_invite_code(session: AsyncSession, code: str, for_update: bool = False) -> InviteCode | None:
+async def async_get_prepaid_code(session: AsyncSession, code: str, for_update: bool = False) -> PrepaidCode | None:
   """
   Args:
   - for_update: if True, will lock the row to avoid race-condition
   """
   # may be multiple in rare condition, get the latest one
-  stmt = select(InviteCode).where(InviteCode.code == code).order_by(InviteCode.lifetime.desc())
+  stmt = select(PrepaidCode).where(PrepaidCode.code == code).order_by(PrepaidCode.lifetime.desc())
   if for_update:
     stmt = stmt.with_for_update()  # LOCK
   r = await session.execute(stmt)

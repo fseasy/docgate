@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Any
+from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -12,13 +12,23 @@ from docgate import config
 from docgate.exceptions import ApiBaseException
 from docgate.repositories import lifespan_db
 from docgate.routes import admin_router, internal_auth_router, user_router
+from docgate.routes_stripe import stripe_router
 from docgate.supertokens_config import init_supertokens
 from docgate.supertokens_utils import async_init_roles
 
 logger = config.LOGGER
 
 logger.info("Init Supertokens")
+
+
+def _init_stripe():
+  import stripe
+
+  stripe.api_key = config.STRIPE_API_KEY
+
+
 init_supertokens()
+_init_stripe()
 
 
 logger.info("Build app")
@@ -39,6 +49,7 @@ app.add_middleware(get_middleware())
 app.include_router(admin_router, prefix=config.API_COMMON_BASE_PATH)
 app.include_router(internal_auth_router, prefix=config.API_COMMON_BASE_PATH)
 app.include_router(user_router, prefix=config.API_COMMON_BASE_PATH)
+app.include_router(stripe_router, prefix=config.API_COMMON_BASE_PATH)
 
 
 @app.exception_handler(RequestValidationError)
