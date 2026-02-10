@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate, type NavigateFunction } from "react-router-dom";
 import { redirectToAuth } from "supertokens-auth-react";
 import { signOut } from "supertokens-auth-react/recipe/session";
 import { JumpOutSPARouteLogic, ROUTES } from "../../routes";
@@ -7,104 +7,7 @@ import { useIsAdmin, useEmail } from "../../utils/frontendHooks";
 import { SiteConfig } from "../../config";
 
 
-const UserAuthComponent = () => {
-  const emailStatus = useEmail();
-  const navigate = useNavigate();
-
-  const adminStatus = useIsAdmin();
-  const isAdmin = !adminStatus.loading && adminStatus.isAdmin;
-  const [isSigningOut, setIsSigninOut] = useState<boolean>(false);
-
-  async function logoutClicked() {
-    setIsSigninOut(true);
-    await signOut();
-    navigate(JumpOutSPARouteLogic.genRedirectRelativeURL("/")); // Jump Out SPA for root!
-  }
-
-  const SignInUpComponent = () => (
-    <>
-      <a onClick={() => redirectToAuth({ show: "signin" })} className='btn btn-ghost text-info'>
-        登录
-      </a>
-      <a onClick={() => redirectToAuth({ show: "signup" })} className='btn btn-ghost'>
-        注册
-      </a>
-    </>
-  );
-
-  interface HelloSignOutProps {
-    userDisplayName: string;
-    onSignOut: () => void;
-    isAdmin: boolean;
-  }
-
-  const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin }: HelloSignOutProps) => (
-    <>
-      <li className="hidden sm:flex">
-        <span
-          className="select-text cursor-default text-base-content active:bg-transparent focus:bg-transparent hover:bg-transparent">
-          Hi, {userDisplayName}
-        </span>
-      </li>
-
-      <div className="divider divider-horizontal"></div>
-
-      <li className="tracking-widest">
-        <NavLink
-          to={ROUTES.DASHBOARD}
-          className={({ isActive }) =>
-            isActive
-              ? "font-semibold text-base-content/70"
-              : ""
-          }
-        >
-          个人页
-        </NavLink>
-      </li>
-
-      <li className="tracking-widest">
-        <button
-          onClick={() => { navigate(JumpOutSPARouteLogic.genRedirect2DocRoot()); }}
-        >
-          文档页
-        </button>
-      </li>
-
-      {isAdmin === true && (
-        <li className="tracking-widest">
-          <NavLink
-            to={ROUTES.MANAGE}
-            className={({ isActive }) =>
-              isActive
-                ? "font-semibold text-base-content/70"
-                : ""
-            }
-          >
-            管理
-          </NavLink>
-        </li>
-      )
-      }
-
-      <li className="tracking-widest">
-        <button
-          onClick={onSignOut}
-          disabled={isSigningOut}
-        >
-          {isSigningOut ? <span className="loading loading-dots"></span> : "退出登录"}
-        </button>
-      </li>
-    </>
-  );
-
-  if (emailStatus.loading || !emailStatus.email) {
-    return <SignInUpComponent />;
-  }
-
-  return <HelloSignOutComponent userDisplayName={emailStatus.email} onSignOut={logoutClicked} isAdmin={isAdmin} />;
-};
-
-function TopNavbar() {
+export default function TopNavbar() {
   return (
     <nav className='navbar bg-base-100 shadow-sm'>
       <div className="navbar-start">
@@ -132,4 +35,109 @@ function TopNavbar() {
   );
 }
 
-export default TopNavbar;
+const SignInUpComponent = () => (
+  <>
+    <a onClick={() => redirectToAuth({ show: "signin" })} className='btn btn-ghost text-info'>
+      登录
+    </a>
+    <a onClick={() => redirectToAuth({ show: "signup" })} className='btn btn-ghost'>
+      注册
+    </a>
+  </>
+);
+
+interface HelloSignOutProps {
+  userDisplayName: string;
+  onSignOut: () => void;
+  isAdmin: boolean;
+  isSigningOut: boolean;
+  navigate: NavigateFunction;
+}
+
+const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin, isSigningOut, navigate }: HelloSignOutProps) => (
+  <>
+    <li className="hidden sm:flex">
+      <span
+        className="select-text cursor-default text-base-content active:bg-transparent focus:bg-transparent hover:bg-transparent">
+        Hi, {userDisplayName}
+      </span>
+    </li>
+
+    <div className="divider divider-horizontal"></div>
+
+    <li className="tracking-widest">
+      <NavLink
+        to={ROUTES.DASHBOARD}
+        className={({ isActive }) =>
+          isActive
+            ? "font-semibold text-base-content/70"
+            : ""
+        }
+      >
+        个人页
+      </NavLink>
+    </li>
+
+    <li className="tracking-widest">
+      <button
+        onClick={() => { navigate(JumpOutSPARouteLogic.genRedirect2DocRoot()); }}
+      >
+        文档页
+      </button>
+    </li>
+
+    {isAdmin === true && (
+      <li className="tracking-widest">
+        <NavLink
+          to={ROUTES.MANAGE}
+          className={({ isActive }) =>
+            isActive
+              ? "font-semibold text-base-content/70"
+              : ""
+          }
+        >
+          管理
+        </NavLink>
+      </li>
+    )
+    }
+
+    <li className="tracking-widest">
+      <button
+        onClick={onSignOut}
+        disabled={isSigningOut}
+      >
+        {isSigningOut ? <span className="loading loading-dots"></span> : "退出登录"}
+      </button>
+    </li>
+  </>
+);
+
+
+
+const UserAuthComponent = () => {
+  const emailStatus = useEmail();
+  const navigate = useNavigate();
+
+  const adminStatus = useIsAdmin();
+  const isAdmin = !adminStatus.loading && adminStatus.isAdmin;
+  const [isSigningOut, setIsSigninOut] = useState<boolean>(false);
+
+  async function logoutClicked() {
+    setIsSigninOut(true);
+    await signOut();
+    navigate(JumpOutSPARouteLogic.genRedirectRelativeURL("/")); // Jump Out SPA for root!
+  }
+
+  if (emailStatus.loading || !emailStatus.email) {
+    return <SignInUpComponent />;
+  }
+
+  return <HelloSignOutComponent
+    userDisplayName={emailStatus.email}
+    onSignOut={logoutClicked}
+    isAdmin={isAdmin}
+    isSigningOut={isSigningOut}
+    navigate={navigate}
+  />;
+};

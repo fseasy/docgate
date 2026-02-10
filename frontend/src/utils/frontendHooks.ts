@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import Session, { useSessionContext } from "supertokens-auth-react/recipe/session";
 import { UserRoleClaim } from "supertokens-auth-react/recipe/userroles";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, } from "react-router-dom";
 import { fetchSessionSupertokensUserById } from "./api";
+
 
 type AdminStatus = { loading: true; } | { loading: false; isAdmin: boolean; };
 
@@ -19,38 +20,39 @@ export const useIsAdmin = (): AdminStatus => {
 type EmailStatus = { loading: true; } | { loading: false; email: string; } | { loading: false, email: undefined; };
 
 export const useEmail = (): EmailStatus => {
-  const [emailStatus, setEmailStatus] = useState<EmailStatus>({ loading: true });
   const session = useSessionContext();
+  const payloadEmail = session.loading ? undefined : session.accessTokenPayload.email;
+  const [apiFetching, setApiFetching] = useState<boolean>(false);
+  const [apiEmail, setApiEmail] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    if (session.loading || payloadEmail || apiFetching || apiEmail != undefined) return;
+
+    // Fetching
     let isMount = true;
 
-    const loadEmail = async () => {
-      if (session.loading) {
-        return;
-      }
-      const sessionEmail = session.accessTokenPayload.email;
-      if (sessionEmail) {
-        if (isMount) setEmailStatus({ loading: false, email: sessionEmail });
-        return;
-      }
+    const fetchEmail = async () => {
+      setApiFetching(true);
       try {
-        if (isMount) {
-          const userData = await fetchSessionSupertokensUserById();
-          if (isMount) setEmailStatus({ loading: false, email: userData?.emails[0] });
-        }
+        const userData = await fetchSessionSupertokensUserById();
+        if (isMount) setApiEmail(userData?.emails[0]);
       } catch (err) {
         console.error("Fetch user data failed", { err });
-        if (isMount) setEmailStatus({ loading: false, email: undefined });
+        if (isMount) setApiEmail(undefined);
+      } finally {
+        if (isMount) setApiFetching(false);
       }
     };
-    loadEmail();
+    fetchEmail();
 
     return () => { isMount = false; };
 
-  }, [session.loading]);
+  }, [session.loading, payloadEmail, apiFetching, apiEmail]);
 
-  return emailStatus;
+  if (session.loading) return { loading: true };
+  if (payloadEmail) return { loading: false, email: payloadEmail };
+  if (apiFetching) return { loading: true };
+  return { loading: false, email: apiEmail };
 };
 
 interface UseClipboardOptions {
@@ -82,9 +84,11 @@ export const useClipboard = (options: UseClipboardOptions = {}) => {
 /*****
  * Used for dev, export the navigator to console.
  */
-export const devUseConsoleNavigate = () => {
+export const useConsoleNavigate = () => {
   const navigate = useNavigate();
   useEffect(() => {
-    (window as any).navigate = navigate;
+    if (typeof window !== "undefined") {
+      window.navigate = navigate;
+    }
   }, [navigate]);
 };

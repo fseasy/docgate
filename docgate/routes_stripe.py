@@ -48,7 +48,7 @@ async def create_checkout_session(
   return_url = _build_return_url()
 
   stripe_session = await stripe.checkout.Session.create_async(
-    ui_mode="embedded",
+    ui_mode="custom",
     **kwargs,
     billing_address_collection="auto",
     line_items=[

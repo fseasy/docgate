@@ -4,6 +4,8 @@ import { SiteBanner } from "../../assets/images";
 import { purchaseByCode } from "../../utils/api";
 import { useNavigate, Link } from "react-router-dom";
 import { JumpOutSPARouteLogic, ROUTES } from "../../routes";
+import { SiteConfig } from "../../config";
+import { QRCodeWechat, QRCodeXhs } from "../../assets/images";
 
 export default function Purchase() {
   const navigate = useNavigate();
@@ -44,77 +46,80 @@ export default function Purchase() {
 
   return (
     <ContentPageLayout>
-      <Banner />
+      <div className="bg-base-100 pb-3 sm:rounded-xl">
+        <Banner />
 
-      {/* 方式 1：预付款码 */}
-      <div className="mx-3 my-8">
-        <h2 className="text-lg font-semibold  mb-3">方式 1：使用预付款码</h2>
-        <p className="text-base-content/70 mb-4">
-          如果你已经有预付款码，请在下面输入框填写即可验证并开启课程。
-        </p>
-        <div className="flex items-center mb-4 gap-2">
-          <input
-            type="text"
-            placeholder="请输入预付款码"
-            className="flex-6 input input-info p-3"
-            value={inviteCode}
-            onChange={(e) => setPrepaidCode(e.target.value)}
-            disabled={isLoading}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !isLoading) {
-                handleBindPrepaidCode();
-              }
-            }}
-          />
-          <button
-            className="flex-1 btn btn-info"
-            onClick={handleBindPrepaidCode}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <span className="loading loading-dots loading-sm"></span>
-            ) : (
-              "验证"
-            )}
-          </button>
+        {/* 方式 1：预付款码 */}
+        <div className="mx-4 my-8">
+          <h2 className="text-lg font-semibold my-5">方式 1：使用预付款码</h2>
+          <p className="text-base-content/70 mb-4">
+            如果你已经有预付款码，请在下面输入框填写即可验证并开启课程。
+          </p>
+          <div className="flex items-center mb-4 gap-2">
+            <input
+              type="text"
+              placeholder="请输入预付款码"
+              className="flex-6 input input-info p-3"
+              value={inviteCode}
+              onChange={(e) => setPrepaidCode(e.target.value)}
+              disabled={isLoading}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !isLoading) {
+                  handleBindPrepaidCode();
+                }
+              }}
+            />
+            <button
+              className="flex-1 btn btn-info"
+              onClick={handleBindPrepaidCode}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="loading loading-dots loading-sm"></span>
+              ) : (
+                "验证"
+              )}
+            </button>
+          </div>
+
+          {/* 显示消息 */}
+          {message && (
+            <div role="alert"
+              className={`alert ${message.type === "success" ? "alert-success" : "alert-error"} alert-soft mb-4`}>
+              <span>{message.text}</span>
+            </div>
+          )}
+
+          <p className="text-base-content/70 mb-2">如果你还没有预付款码，可以直接加{SiteConfig.contentAuthorName}小红书或者微信（微信麻烦备注：亲子英语）。期待和你直接交流 <span className="text-base-content">😊</span> </p>
+
+          {/* 二维码 */}
+          <div className="flex flex-col sm:flex-row sm:justify-between gap-8 mt-6 sm:mx-10">
+            <div className="flex flex-col items-center">
+              <img src={QRCodeXhs} alt="小红书二维码" className="w-64 dark:opacity-80 mb-2" />
+              <span className="text-base-content/70 text-sm">小红书</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <img src={QRCodeWechat} alt="微信二维码" className="w-64 dark:opacity-80 mb-2" />
+              <span className="text-base-content/70 text-sm">微信</span>
+            </div>
+          </div>
         </div>
 
-        {/* 显示消息 */}
-        {message && (
-          <div role="alert"
-            className={`alert ${message.type === "success" ? "alert-success" : "alert-error"} alert-soft mb-4`}>
-            <span>{message.text}</span>
-          </div>
-        )}
+        {/* 分割线 */}
+        <div className="divider my-7">其他购买方式</div>
 
-        <p className="text-base-content/70 mb-2">如果你还没有预付款码，可以直接加大娟小红书或者微信（微信麻烦备注：亲子英语）。期待和你直接交流 <span className="text-base-content">😊</span> </p>
-
-        {/* 二维码 */}
-        <div className="flex justify-between gap-8 mt-6 sm:mx-10">
-          <div className="flex flex-col items-center">
-            <img src="/qrcode-xhs.png" alt="小红书二维码" className="w-32 h-32 mb-2" />
-            <span className="text-base-content/70 text-sm">小红书</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <img src="/qrcode-wechat.png" alt="微信二维码" className="w-32 h-32 mb-2" />
-            <span className="text-base-content/70 text-sm">微信</span>
-          </div>
+        {/* 方式 2：Stripe */}
+        <div className="mx-4 my-5">
+          <h2 className="text-lg font-semibold  mb-3">方式 2：页面内自助购买</h2>
+          <p className="text-base-content/70 mb-4">
+            基于 Stripe, 直接使用支付宝/微信或者信用卡支付，一键购买内容，无需等待 <span className="text-base-content/50 italic">，虽然{SiteConfig.contentAuthorName}一般响应也很快</span>。
+          </p>
+          <Link to={ROUTES.STRIPE_CHECKOUT} className="btn btn-info">
+            使用 Stripe 支付
+          </Link>
         </div>
       </div>
 
-      {/* 分割线 */}
-      <div className="divider">其他购买方式</div>
-
-      {/* 方式 2：Stripe */}
-      <div className="mx-3 my-8">
-        <h2 className="text-lg font-semibold  mb-3">方式 2：直接支付</h2>
-        <p className="text-base-content/70 mb-4">
-          直接使用信用卡或 Stripe 支付，一键购买课程。
-        </p>
-        <Link to={ROUTES.STRIPE_CHECKOUT} className="btn btn-info">
-          使用 Stripe 支付
-        </Link>
-      </div>
     </ContentPageLayout>
   );
 }

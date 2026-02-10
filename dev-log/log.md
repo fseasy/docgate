@@ -1,3 +1,241 @@
+## 26.02.10
+
+### 接入 stripe 2
+
+昨天发现 embeded ui 不能设置 dark/light 主题，决定改了；
+但是被 Gemini 骗了—把后端改成了 pay intent 的方式；今天去看文档，发现还是有 create new session 的方式，只需要把 embeded ui 改成 custom 后端就完事了。
+
+前端的变化，主要是要通过 Provider 注入 credit 和 appearance, 这个估计也可以不用 provider, 因为 Gemini 就不是这么写的，还是以前传参的方式。但不像被 Gemini 坑，就按文档的方式，只是让 kimi 给生成了一个仅作用在 strip 路由下的 provider — 通过 router-dom 的 Layout / <outlet> 来实现的。具体也不懂，反正折腾一上午，算是搞好了吧。
+
+### 二维码定制化
+
+需要把二维码放到网站上，但是导出微信、小红书导出的样式不统一、白底在 dark 下不好。尝试了 2 种：
+1. 网上制作二维码—是挺绚丽的，结果发现，它把我的信息给改成了次级路由—也就是搞成了短链的形式，哎，而且这个短链还被微信封掉了…
+2. 自己搞：把白色背景给去掉，换成透明的；结果—识别不了了… 算了，放弃了透明处理，就把大小统一下就行了吧…
+
+### React lint 报错修复
+
+每个错误都是在学习啊：
+
+- Avoid calling setState() directly within an effect => 不要直接 setState, 会引起级联渲染。可以考虑用 Ref 不会触发渲染逻辑。或者想想，怎么需要 seState 吗？
+- Cannot create components during render => 组件里不能再创建组件！移出去。
+
+
+- 永远不要在 Hook 或 Component 的顶层作用域直接写 fetch 或 setState（除非是在初始化 state 的闭包里），必须包裹在 useEffect 或事件回调函数中。
+
+
+- 同步计算找 useMemo/useState初始化，异步请求找 useEffect + setState。 现在清楚一点了吗？
+  
+同步逻辑：能不写在 Effect 里的就不写（第一种情况）
+
+```ts
+useEffect(() => {
+  const tURL = 计算URL(); // 同步计算
+  setTgtURL(tURL); // ❌ 这里不推荐
+}, []);
+```
+
+ 异步逻辑：必须写在 Effect 里
+
+```ts
+useEffect(() => {
+  const fetchData = async () => {
+    const data = await api(); // 异步等待
+    setEmailStatus(data);      // ✅ 这里必须写 setState
+  };
+  fetchData();
+}, []);
+```
+
+- 违反了 Hooks 规则 (Rules of Hooks)： React 不允许在 return 之后调用 Hook，也不允许在条件语句中调用 Hook。
+  
+  必须定义完了 Hook (useEffect 等)，才能开始 return.
+
+  React 依靠 Hook 调用的顺序来记录状态。如果某次渲染执行了 return（即跳过了后面的 useEffect），而下次渲染又执行了它，React 的内部计数器就会错乱。
+
+
+
+
+React 的核心运行机制：渲染周期（Render Cycle）
+
+什么时候会再次执行这个函数？
+
+- 在 React 中，一个自定义 Hook（比如 useEmail）本质上就是一个普通的函数，但它会在以下几种情况下重新从头到尾执行一遍：
+- 内部的 State 改变了：只要你调用了 setApiEmail 或 setFetching，React 就会说：“这个 Hook 的数据变了，我要重新运行这个函数，看看它返回的最新结果是什么。”
+- 依赖的 Context 改变了：因为你用了 useSessionContext()，只要 session 里面的数据（比如 loading 状态、accessToken）变了，这个函数就会重新执行。
+- 使用这个 Hook 的组件重新渲染了：如果父组件变了，Hook 也会跟着跑一遍。
+
+- setState 本身就是为了引起函数重跑。
+
+- 不设统一对象的原因： 为了能利用“计算出来的结果”直接返回（派生状态），减少不必要的 setState 导致的多次重绘。
+
+- React 的精髓： 函数就像一个加工厂。输入（Props, State, Context）一变，工厂就重新开工，输出（Return 值）新的产品。
+
+
+对下面代码做过程解析：
+
+```ts
+export const useEmail = (): EmailStatus => {
+  const session = useSessionContext();
+  const [apiEmail, setApiEmail] = useState<string | undefined>(undefined);
+  const [fetching, setFetching] = useState(false);
+
+  // 1. 提取 Payload 里的 Email
+  const payloadEmail = session.loading ? undefined : session.accessTokenPayload?.email;
+
+  // 2. 只有在 Payload 没数据，且 Session 加载完时，才发起 API 请求
+  useEffect(() => {
+    if (session.loading || payloadEmail) return;
+
+    let isMount = true;
+    const loadEmail = async () => {
+      setFetching(true);
+      try {
+        const userData = await fetchSessionSupertokensUserById();
+        if (isMount) setApiEmail(userData?.emails[0]);
+      } catch (err) {
+        console.error("Fetch user data failed", err);
+      } finally {
+        if (isMount) setFetching(false);
+      }
+    };
+
+    loadEmail();
+    return () => { isMount = false; };
+  }, [session.loading, payloadEmail]);
+
+  // 3. 计算最终状态 (Derived State)
+  // 如果 Session 还在加载 -> Loading
+  if (session.loading) return { loading: true };
+  
+  // 如果 Payload 有数据 -> 直接返回，不走 State 逻辑，无闪烁
+  if (payloadEmail) return { loading: false, email: payloadEmail };
+
+  // 如果正在请求 API -> Loading
+  if (fetching) return { loading: true };
+
+  // 最后返回 API 的结果
+  return { loading: false, email: apiEmail };
+};
+```
+
+逻辑执行全过程（时间线模拟）
+我们来看看我的代码是怎么跑的：
+第一阶段：初始化（挂载）
+  useEmail 执行。
+  session.loading 为 true。
+  函数碰到 if (session.loading) return { loading: true }。
+  返回结果，函数结束。
+第二阶段：Session 数据到达（Context 更新）
+  session 变了，触发 useEmail 第二次执行。
+  session.loading 变为 false。
+  计算 payloadEmail。
+  情况 A： 如果 payloadEmail 有值。
+    函数碰到 if (payloadEmail) return ...。
+    直接返回数据。结束。不需要任何 set... 动作，也不需要 useEffect 跑完。
+  情况 B： 如果 payloadEmail 没值。
+    继续向下运行。
+    函数最后碰到 return { loading: false, email: apiEmail } (此时 apiEmail 还是 undefined)。
+    渲染出结果。
+    渲染完成后，React 执行 useEffect。
+    useEffect 里面调用 setFetching(true)。
+第三阶段：API 请求开始
+  setFetching(true) 触发 useEmail 第三次执行。
+  因为 fetching 是 true，函数碰到 if (fetching) return { loading: true }。
+  返回加载状态。
+第四阶段：API 数据返回
+  loadEmail 异步函数执行完，调用 setApiEmail('new-email') 和 setFetching(false)。
+  触发 useEmail 第四次（也是最后一次）执行。
+  最后一行返回 { loading: false, email: 'new-email' }。
+
+
+- setState 是“立刻”执行的吗？
+
+  这是一个常见的误区：setState 不是立刻修改状态变量，而是发起一个“更新请求”。
+
+- 批量更新：一个 useEffect 流程里执行了多个 setState, React 18 后会等待整个流程跑完，再统一决定下一次的渲染（函数再次执行）
+
+- 特殊情况：如果你真的需要立刻重绘
+- 
+  虽然极少用到，但 React 确实提供了一个 API 叫 flushSync，它可以强制 React 立刻同步更新 DOM：
+  
+  ```JavaScript
+  import { flushSync } from 'react-dom';
+
+  flushSync(() => {
+    setCount(1); // 立刻重绘
+  });
+  // 这一行执行时，DOM 已经更新了
+  ```
+
+1. 为什么 Props 变了要重新运行？
+   
+  React 的核心思想是：UI = f(data)。
+  这里的 data 就包含了 Props、State 和 Context。
+  如果 f（你的函数）不重新运行，它怎么知道根据新的 props 应该产出什么样的新界面呢？
+
+2. 举个例子
+假设你的 useEmail 现在需要根据一个 userId 来获取邮箱：
+
+```TypeScript
+//               这里是输入 (Props/Arguments)
+export const useEmail = (userId: string): EmailStatus => {
+  console.log("工厂开工了，当前的 userId 是:", userId);
+
+  const [apiEmail, setApiEmail] = useState<string | undefined>(undefined);
+  const session = useSessionContext();
+
+  // 这里的逻辑每次 userId 变了都会重新计算
+  const payloadEmail = session.accessTokenPayload?.email;
+
+  useEffect(() => {
+    // 当 userId 变化时，这里会被触发
+    console.log("执行异步请求，针对用户:", userId);
+    // ... fetch 逻辑 ...
+  }, [userId]); // 依赖项里有 userId
+
+  // 这里的返回结果每次都会重新生成
+  return { loading: false, email: payloadEmail || apiEmail };
+};
+```
+
+执行流程：
+父组件传进来 userId = "1"。
+useEmail 第一次运行，打印：工厂开工了... 1。
+父组件因为某种原因，把 userId 改成了 "2"。
+React 发现输入变了，第二次运行 useEmail，打印：工厂开工了... 2。
+1. “重新运行” vs “重新挂载” (重要区别)
+这里新手最容易搞混：
+重新运行 (Re-render)： 函数从第一行跑到最后一行。但是！React 很聪明，它会记住你之前用 useState 保存的值。useState 不会因为函数重跑而重置为初始值（除非组件彻底从页面上消失了）。
+重新计算： 函数内部那些普通的变量（比如你的 const payloadEmail = ...）确实会每次都重新计算。
+1. 如果计算过程很重怎么办？
+如果你担心：“既然 Props 一变函数就重跑，那我函数里有个循环 100 万次的计算逻辑，岂不是卡死了？”
+这时候 React 给了你**“保险箱”**：
+useMemo：
+
+```ts
+const expensiveValue = useMemo(() => {
+   // 只有当 userId 变了，这里才会重新计算
+   return performMillionIterrations(userId);
+}, [userId]);
+```
+
+哪怕函数重跑了，只要 userId 没变，React 会直接从缓存里把上次的结果拿给你，跳过那 100 万次循环。
+
+useEffect：
+
+这也是为什么我们要把 fetch 放在 useEffect 里。如果函数每次重跑都去发请求，服务器就炸了。通过 [userId] 依赖数组，我们告诉 React：“虽然函数重跑了，但只要 userId 没变，就别再发请求了。”
+总结：
+
+Props 变了 -> 函数重跑（这是 React 的更新动力）。
+State 变了 -> 函数重跑（这是组件的自我驱动）。
+Context 变了 -> 函数重跑（这是全局环境的联动）。
+
+你的 useEmail 逻辑：
+正是利用了这种“重跑”机制。当 session 从 loading: true 变成 loading: false（Context 变了），useEmail 就会自动重跑。在重跑的过程中，它发现 session.loading 已经是 false 了，于是跳过了第一个 if，继续向下执行后面的逻辑。
+这就是为什么我建议你用 “派生状态”：
+既然函数反正要重跑，我们就在函数运行过程中，根据最新的 Props 和最新的 Context 实时计算出结果直接返回，这比手动管理一堆 setState 要清晰、高效得多。
+
 ## 26.02.09
 
 ### 接入 stripe

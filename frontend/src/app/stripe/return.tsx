@@ -8,7 +8,7 @@ import ContentPageLayout from "../../component/ContentPageLayout";
 import { SiteConfig } from "../../config";
 import { paywallAfterPayProcess } from "../../utils/api";
 
-export default function ReturnPage() {
+export default function CheckoutPage() {
   return (
     <ContentPageLayout>
       <div className="flex items-center justify-center h-[70vh]">
@@ -36,7 +36,7 @@ function ProcessContent() {
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [processStep]);
+  }, [processStep, navigate]);
 
   if (processStep == "query-pay-status") {
     return (
@@ -48,21 +48,26 @@ function ProcessContent() {
   } else if (processStep == "pay-ok") {
     return (
       <>
-        <h2 className="text-2xl">
+        <h2 className="text-2xl text-success-content">
           感谢！支付已成功！
         </h2>
-        <h2 className="text-2xl">
-          开始刷新登录状态并为 {customerEmail} 发送通知邮件。
+        <h2 className="mt-5">
+          开始刷新登录状态并为 {customerEmail} 发送通知邮件
           <span className="loading loading-dots loading-md"></span>
         </h2>
       </>
-
     );
   } else if (processStep == "pay-cancel") {
     return (
-      <h2 className="text-2xl">
-        支付已取消。3 秒后跳转到主页。
-      </h2>
+      <>
+        <h2 className="text-2xl text-info-content">
+          支付已取消。
+        </h2>
+        <h2 className="mt-5">
+          3 秒后跳转到主页
+          <span className="loading loading-dots loading-md"></span>
+        </h2>
+      </>
     );
   } else if (processStep == "all-set") {
     return (
@@ -84,7 +89,6 @@ function ProcessContent() {
       </>
     );
   }
-
 }
 
 type ProcessStep = "query-pay-status" | "pay-ok" | "pay-cancel" | "all-set" | "fail";

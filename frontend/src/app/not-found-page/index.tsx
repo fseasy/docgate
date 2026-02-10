@@ -1,33 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ContentPageLayout from "../../component/ContentPageLayout";
 import { isPathPrefixBelongsToSPA, JumpOutSPARouteLogic, ROUTES } from "../../routes";
 
 export default function NotFoundPage() {
   const pathname = window.location.pathname;
-  const [redirectInfo, setRedirectInfo] = useState<React.ReactNode>(
-    <p>Redirecting to <code>dashboard</code></p>
-  );
+
   const navigate = useNavigate();
+  const isInSPA = isPathPrefixBelongsToSPA(pathname);
+  const fullUrl = window.location.href;
 
   useEffect(() => {
-    const isInSPA = isPathPrefixBelongsToSPA(pathname);
+    let tgtUrl = "";
     if (isInSPA) {
-      // navigate to dashboard directly
-      setTimeout(() => { navigate(ROUTES.DASHBOARD); }, 1000);
-
+      tgtUrl = ROUTES.DASHBOARD;
     } else {
-
-      const fullUrl = window.location.href;
-      setRedirectInfo(
-        <p>Redirecting to <code>{fullUrl}</code></p>
-      );
-      // go to that page by jump out of spa. => NOTE, we directly set it to the whole href.
-      const jumpUrl = JumpOutSPARouteLogic.genRedirectRelativeURL(fullUrl);
-
-      setTimeout(() => { navigate(jumpUrl); }, 1000);
+      tgtUrl = JumpOutSPARouteLogic.genRedirectRelativeURL(fullUrl);
     }
-  }, []);
+    const timer = setTimeout(() => navigate(tgtUrl), 1000);
+    return () => clearTimeout(timer);
+  }, [isInSPA, fullUrl, navigate]);
 
   return (
     <ContentPageLayout>
@@ -38,11 +30,13 @@ export default function NotFoundPage() {
           </h2>
           <div>
             <p><code>{pathname}</code> isn't a known url.</p>
-            {redirectInfo}
+            {isInSPA
+              ? <p>Redirecting to <code>dashboard</code></p>
+              : <p>Redirecting to <code>{fullUrl}</code></p>
+            }
           </div>
         </div>
       </div>
-
     </ContentPageLayout>
   );
 }
