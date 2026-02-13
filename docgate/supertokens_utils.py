@@ -121,8 +121,13 @@ async def async_create_password_reset_link(email: str) -> CreatePasswordResetLin
     return CreatePasswordResetLinkRet(is_success=False, link=None, fail_reason=fail_reason)
 
 
-async def async_manually_verify_email(user_id: str) -> tuple[bool, str | None]:
-  recipe_user_id = RecipeUserId(user_id)
+async def async_manually_verify_email(email: str) -> tuple[bool, str | None]:
+  users = await async_get_user_by_email(email)
+  if not users:
+    return (False, f"No user found for the email: {email}")
+
+  u = users[0]  # always get the first one, ignore the other condition
+  recipe_user_id = RecipeUserId(u.id)
   try:
     # Create an email verification token for the user
     token_res = await create_email_verification_token("public", recipe_user_id)

@@ -58,8 +58,9 @@ type PrepaidCodeResult =
   };
 
 export const genPrepaidCode = async (): Promise<PrepaidCodeResult> => {
+
+  const apiUrl = getApiURL("GEN_PREPAID_CODE");
   try {
-    const apiUrl = getApiURL("GEN_PREPAID_CODE");
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -79,6 +80,61 @@ export const genPrepaidCode = async (): Promise<PrepaidCodeResult> => {
     console.log(`genPrepaidCode failed: ${errMsg}`);
 
     return { error: errMsg };
+  }
+};
+
+type CreatePasswordResetLinkResult = {
+  is_success: boolean;
+  link: string | null;
+  fail_reason: string | null;
+};
+
+export const createPasswordResetLink = async (email: string): Promise<CreatePasswordResetLinkResult> => {
+  try {
+    const apiUrl = getApiURL("CREATE_PASSWORD_RESET_LINK");
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed on api call, err=${response}`);
+    }
+    const data: CreatePasswordResetLinkResult = await response.json();
+    return data;
+  } catch (error) {
+    const errMsg =
+      error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error in Frontend";
+    console.log(`createPasswordResetLink failed: ${errMsg}`);
+    return { is_success: false, link: null, fail_reason: errMsg };
+  }
+};
+
+type ManuallyVerifyEmailResult = {
+  is_success: boolean;
+  fail_reason: string | null;
+};
+
+export const manuallyVerifyEmail = async (email: string): Promise<ManuallyVerifyEmailResult> => {
+  try {
+    const apiUrl = getApiURL("MANUALLY_VERIFY_EMAIL");
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed on api call, err=${response}`);
+    }
+    const data: ManuallyVerifyEmailResult = await response.json();
+    return data;
+  } catch (error) {
+    const errMsg =
+      error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error in Frontend";
+    console.log(`manuallyVerifyEmail failed: ${errMsg}`);
+    return { is_success: false, fail_reason: errMsg };
   }
 };
 

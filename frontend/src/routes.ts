@@ -19,6 +19,8 @@ const API_ROUTES = {
   USER_DB_INFO: "/user/get",
   PURCHASE_BY_CODE: "/user/purchase-by-code",
   GEN_PREPAID_CODE: "/admin/gen-prepaid-code",
+  CREATE_PASSWORD_RESET_LINK: "/admin/create-password-reset-link",
+  MANUALLY_VERIFY_EMAIL: "/admin/manually-verify-email",
   STRIPE_CREATE_CHECKOUT_SESSION: "/stripe/create-checkout-session",
   STRIPE_SESSION_STATUS: "/stripe/session-status",
   STRIPE_AFTER_PAY: "/stripe/after-pay",

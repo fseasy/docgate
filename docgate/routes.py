@@ -172,6 +172,79 @@ async def gen_prepaid_code(
     return GenPrepaidCodeResp(error=str(e), code=None, lifetime=None)
 
 
+class CreatePasswordResetLinkReq(BaseModel):
+  email: Annotated[
+    str,
+    Field(description="user email"),
+    StringConstraints(strip_whitespace=True, min_length=1),
+  ]
+
+
+class CreatePasswordResetLinkResp(BaseModel):
+  is_success: bool
+  link: str | None
+  fail_reason: str | None
+
+
+@admin_router.post("/create-password-reset-link")
+async def create_password_reset_link(
+  req: CreatePasswordResetLinkReq,
+  session: SessionContainer = Depends(verify_session()),
+) -> CreatePasswordResetLinkResp:
+  """create password reset link for a given email"""
+
+  async def _logic():
+    user_id = session.get_user_id()
+    roles = await session.get_claim_value(UserRoleClaim)
+    if roles is None or StRole.ADMIN not in roles:
+      return CreatePasswordResetLinkResp(
+        is_success=False, link=None, fail_reason=f"user [{user_id}] didn't have admin role. roles={roles}"
+      )
+    result = await async_create_password_reset_link(req.email)
+    return CreatePasswordResetLinkResp(is_success=result.is_success, link=result.link, fail_reason=result.fail_reason)
+
+  try:
+    return await _logic()
+  except Exception as e:
+    return CreatePasswordResetLinkResp(is_success=False, link=None, fail_reason=str(e))
+
+
+class ManuallyVerifyEmailReq(BaseModel):
+  email: Annotated[
+    str,
+    Field(description="user email"),
+    StringConstraints(strip_whitespace=True, min_length=1),
+  ]
+
+
+class ManuallyVerifyEmailResp(BaseModel):
+  is_success: bool
+  fail_reason: str | None
+
+
+@admin_router.post("/manually-verify-email")
+async def manually_verify_email(
+  req: ManuallyVerifyEmailReq,
+  session: SessionContainer = Depends(verify_session()),
+) -> ManuallyVerifyEmailResp:
+  """manually verify email for a given email"""
+
+  async def _logic():
+    user_id = session.get_user_id()
+    roles = await session.get_claim_value(UserRoleClaim)
+    if roles is None or StRole.ADMIN not in roles:
+      return ManuallyVerifyEmailResp(
+        is_success=False, fail_reason=f"user [{user_id}] didn't have admin role. roles={roles}"
+      )
+    is_success, fail_reason = await async_manually_verify_email(req.email)
+    return ManuallyVerifyEmailResp(is_success=is_success, fail_reason=fail_reason)
+
+  try:
+    return await _logic()
+  except Exception as e:
+    return ManuallyVerifyEmailResp(is_success=False, fail_reason=str(e))
+
+
 @internal_auth_router.get("/check")
 async def docgate_auth_check(request: Request, db_session: AsyncSession = Depends(get_db_async_session)):
   REDIRECT_SESSION_HANDLE_CODE = 401
