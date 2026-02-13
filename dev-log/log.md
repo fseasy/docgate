@@ -1,3 +1,67 @@
+## 26.02.13
+
+### css 选择器
+
+再记录下，还是搞不清楚：
+
+```
+a.btn     /* <a class="btn">          标签a且有btn类 */
+a .btn    /* <a> <x class="btn">      a里面的btn子元素； 注意这里和上面的区别，就是一个空格！所以不能乱写*/ 
+a > .btn  /* <a> <x class="btn">      a里面的直接btn子元素 */
+a, .btn   /* <a> 和 <x class="btn">   a标签或btn类 */
+```
+
+## 26.02.12
+
+### 页面设计
+
+原来可以把很多目录标签，作为 badge 来显示，看起来好漂亮。
+
+## 26.02.11
+
+### js 直接读取 access-token
+
+### hugo config
+
+https://gohugo.io/configuration/introduction/
+
+1. For versions v0.109.0 and earlier, the site configuration file was named config. While you can still use this name, it’s recommended to switch to the newer naming convention, hugo.
+   
+   果然，最新的就是用 hugo.toml, 自己被坑着改回用 config.toml 了...
+
+2. multiple configs
+
+  To use a different configuration file when building your site, use the --config flag:
+
+  hugo --config other.toml
+
+  Combine two or more configuration files, with left-to-right precedence:
+
+  hugo --config a.toml,b.yaml,c.json
+
+  文件夹方式：
+
+  ```
+  my-project/
+  └── config/
+      ├── _default/
+      │   ├── hugo.toml
+      │   ├── menus.en.toml
+      │   ├── menus.de.toml
+      │   └── params.toml
+      ├── production/
+      │   ├── hugo.toml
+      │   └── params.toml
+      └── staging/
+          ├── hugo.toml
+          └── params.toml
+  ```
+
+  注意，每个文件名，对应的是一个 root-key （如 "params"）, 用这个 root-key 拆分为文件形式的子配置后，子配置里就不要写 root key 了！
+
+3. 查看最终的 config: `hugo config` 展示实际应用的 config, 可以来 debug
+
+
 ## 26.02.10
 
 ### 接入 stripe 2

@@ -1,6 +1,13 @@
+from pydantic import BaseModel
+from supertokens_python.recipe.emailpassword.asyncio import create_reset_password_link
+from supertokens_python.recipe.emailverification.asyncio import (
+  create_email_verification_token,
+  verify_email_using_token,
+)
+from supertokens_python.recipe.emailverification.interfaces import CreateEmailVerificationTokenOkResult
 from supertokens_python.recipe.userroles.asyncio import add_role_to_user, create_new_role_or_add_permissions
 from supertokens_python.recipe.userroles.interfaces import UnknownRoleError
-from supertokens_python.types import User
+from supertokens_python.types import RecipeUserId, User
 
 from . import config as base_conf
 from .supertokens_config import StRole
@@ -88,3 +95,43 @@ async def async_send_email(subject: str, body: str, is_html: bool, target_email:
     is_html=is_html,
   )
   await smtp_service.service_implementation.transporter.send_email(content, {})
+
+
+class CreatePasswordResetLinkRet(BaseModel):
+  is_success: bool
+  link: str | None
+  fail_reason: str | None
+
+
+async def async_create_password_reset_link(email: str) -> CreatePasswordResetLinkRet:
+  """Return: (is-success, fail-reason)
+  # the password reset link's lifetime is 1 hour.
+  """
+  users = await async_get_user_by_email(email)
+  if not users:
+    return CreatePasswordResetLinkRet(is_success=False, link=None, fail_reason=f"No user found for the email: {email}")
+
+  u = users[0]  # always get the first one, ignore the other condition
+  link = await create_reset_password_link("public", u.id, email)
+
+  if isinstance(link, str):
+    return CreatePasswordResetLinkRet(is_success=True, link=link, fail_reason=None)
+  else:
+    fail_reason = "user does not exist or is not an email password user"
+    return CreatePasswordResetLinkRet(is_success=False, link=None, fail_reason=fail_reason)
+
+
+async def async_manually_verify_email(user_id: str) -> tuple[bool, str | None]:
+  recipe_user_id = RecipeUserId(user_id)
+  try:
+    # Create an email verification token for the user
+    token_res = await create_email_verification_token("public", recipe_user_id)
+
+    # If the token creation is successful, use the token to verify the user's email
+    if isinstance(token_res, CreateEmailVerificationTokenOkResult):
+      await verify_email_using_token("public", token_res.token)
+    return (True, None)
+  except Exception as e:
+    err = f"Failed to manually verify email, err={e}"
+    logger.warning("%s", err)
+    return (False, err)

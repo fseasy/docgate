@@ -2,7 +2,6 @@ import traceback
 from datetime import datetime
 from typing import Annotated, Any
 
-import stripe
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, StringConstraints
@@ -18,7 +17,11 @@ from docgate.logics import CreateDbUserLogic, PrepaidCodeLogic, UserPermissionLo
 from docgate.models import PayLog, Tier
 from docgate.repositories import async_create_prepaid_code, async_get_user, get_db_async_session
 from docgate.supertokens_config import StRole
-from docgate.supertokens_utils import async_get_user as get_st_user
+from docgate.supertokens_utils import (
+  async_get_user as get_st_user,
+  async_create_password_reset_link,
+  async_manually_verify_email,
+)
 
 # We define the routers to group api endpoints and support future expansion.
 user_router = APIRouter(prefix="/user", tags=["User"])
