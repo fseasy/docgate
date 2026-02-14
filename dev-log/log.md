@@ -1,3 +1,24 @@
+## 26.02.14
+
+### supertokens get_session 耗时约 0.8s
+
+```
+com.supertokens {"t": "2026-02-14T15:48:55.186862+00Z", "sdkVer": "0.30.2", "message": "getSession: using cookie transfer method", "file": "recipe/session/session_request_functions.py:150"}
+
+com.supertokens {"t": "2026-02-14T15:48:55.186922+00Z", "sdkVer": "0.30.2", "message": "getSession: Value of antiCsrfToken is: False", "file": "recipe/session/session_request_functions.py:194"}
+
+com.supertokens {"t": "2026-02-14T15:48:55.186956+00Z", "sdkVer": "0.30.2", "message": "getSession: Started", "file": "recipe/session/recipe_implementation.py:184"}
+
+request get-session failed, elapsed= 0.008843916999467183
+2026-02-14 23:48:55,195/DajuanEnglish/INFO/routes.py:271> AuthCheck: get exception of [No SuperTokens core available to query], redirect to session handle
+      INFO   127.0.0.1:64829 - "GET /api/internal-auth/check HTTP/1.0" 401
+com.supertokens {"t": "2026-02-14T15:48:55.198732+00Z", "sdkVer": "0.30.2", "message": "middleware: Started", "file": "supertokens.py:546"}
+```
+
+耗时这么长当然是因为网络问题，但问题是后面的验证不应该再走网络了呀？
+
+没搞明白为啥还会走网络。
+
 ## 26.02.13
 
 ### css 选择器

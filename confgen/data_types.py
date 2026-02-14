@@ -25,7 +25,6 @@ class BasicConfigT(BaseModel):
   VITE_WEBSITE_DOC_ROOT_PATH: str
   VITE_WEBSITE_INDEX_ROOT_PATH: str
   # * frontend public route (used in other place beyond frontend)
-  VITE_WEBSITE_PURCHASE_ROUTE: str = "/app/purchase/"
 
 
 class SupertokensConfT(BaseModel):
@@ -69,7 +68,7 @@ def _gen_abs_dir(rel_dir: str, check: bool = True) -> Path:
 class NginxConfT(BaseModel):
   listen_port: int = 3333
   server_name: str | None = None
-  access_log_path: Path | None = Field(default=_gen_abs_dir("../nginx/log/access.log"))
+  access_log_path: Path | None = Field(default=_gen_abs_dir("../nginx/log/access.log", check=False))
 
 
 class DeployConfT(BaseModel):
@@ -99,11 +98,11 @@ class EnvConfT(BaseModel):
 
 
 class BackupManager(object):
-  def __init__(self):
+  def __init__(self, env: EnvT):
     import time
 
     sig = time.strftime("%m%d-%H%M%S")
-    self._cur_dir = _gen_abs_dir(f"./backup/{sig}", check=False)
+    self._cur_dir = _gen_abs_dir(f"./backup/{env}/{sig}", check=False)
     self._cur_dir.mkdir(parents=True, exist_ok=True)
 
   def backup(self, src_path: Path, name: str):

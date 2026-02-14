@@ -4,32 +4,33 @@ from .data_types import EnvConfT
 
 
 class NginxConfGen(object):
+  INDENT_SPACE = 2
+
   def __init__(self, c: EnvConfT):
     self._c = c
 
-  def gen(self, out_path: Path): ...
+  def gen(self, out_path: Path):
+    log_content = _DEBUG_LOG_FMT
+    upstream_content = self._gen_upstream()
+    server_content = self._gen_server()
+    content = "\n\n".join([log_content, upstream_content, server_content])
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, mode="wt", encoding="utf-8") as f:
+      print(content, file=f)
 
   def _gen_upstream(self) -> str:
     d = self._c.deploy
-    auth_upstream = f"""
-upstream api_server {{
-    server {d.backend_server};
-}}
-"""
+    auth_upstream = _gen_block_conf("upstream api_server", [f"server {d.backend_server};"])
     confs = [auth_upstream]
 
     if self._c.deploy.vite_in_server_mode:
-      vite_upstream = f"""
-upstream vite_server {{
-    server {d.vite_server};
-}}
-"""
+      vite_upstream = _gen_block_conf("upstream vite_server", [f"server {d.vite_server};"])
       confs.append(vite_upstream)
-    return "\n\n".join(confs)
+    return "\n".join(confs)
 
   def _gen_server(self) -> str:
     n = self._c.deploy.nginx
-    conf_lines = [f"listen: {n.listen_port};"]
+    conf_lines = [f"listen {n.listen_port};"]
     if n.server_name:
       server_line = f"server_name {n.server_name};"
       conf_lines.append(server_line)
@@ -58,17 +59,21 @@ upstream vite_server {{
     vite_section = _VITE_SECTION_FMT.format(VITE_SETTING=vite_inner_setting, VITE_PREFIX=_vite_prefix)
     conf_lines.append(vite_section)
     # * hugo/content
-
-  def _generate_content_part_route(self):
-    static_dir = self._c.deploy.hugo_static_dir
-    normal_part = _HUGO_NORMAL_PART_FMT.format(HUGO_STATIC_DIR=static_dir)
-    conf_lines = [normal_part]
+    hugo_static_dir = self._c.deploy.hugo_static_dir
+    normal_part = _HUGO_NORMAL_PART_FMT.format(HUGO_STATIC_DIR=hugo_static_dir)
+    conf_lines.append(normal_part)
+    with_auth_part = _HUGO_AUTH_PART_FMT.format(DOC_PREFIX=self._get_doc_prefix(), HUGO_STATIC_DIR=hugo_static_dir)
+    conf_lines.append(with_auth_part)
+    return _gen_block_conf("server", conf_lines)
 
   def _get_api_prefix(self) -> str:
     return self._c.basic.VITE_API_COMMON_BASE_PATH.strip("/")
 
   def _get_vite_prefix(self) -> str:
     return self._c.basic.VITE_WEBSITE_REACT_BASE_PATH.strip("/")
+
+  def _get_doc_prefix(self) -> str:
+    return self._c.basic.VITE_WEBSITE_DOC_ROOT_PATH.strip("/")
 
 
 _DEBUG_LOG_FMT = r"""
@@ -199,24 +204,44 @@ location ^~ /{DOC_PREFIX}/ {{
 }}
 
 # * add cache for none html resources under /docs/
-location ~* ^/docs/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif|css|js|woff|woff2|ttf|eot|svg|otf)$ {
+location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif|css|js|woff|woff2|ttf|eot|svg|otf)$ {{
     auth_request /_docgate/auth_check;
 
     root {HUGO_STATIC_DIR};
 
     try_files $uri =404;
     add_header Cache-Control "private, max-age=604800";
-}
+}}
 
 # * go to the hugo /50x/index.html (based on `location /` routing)
 error_page 500 502 503 504 /50x;
 
 # * go to api interface for session refresh and redirect
-location @session_handle_redirect {
+location @session_handle_redirect {{
     return 302 /api/internal-auth/refresh-session-or-signin?s=$request_uri;
-}
+}}
 
-location @purchase_redirect {
+location @purchase_redirect {{
     return 302 /app/purchase/;
-}
+}}
 """
+
+
+def _gen_block_conf(block_head: str, content_lines: list[str], base_indent_level: int = 0) -> str:
+  """
+  Generate result as:
+  {block-head} {
+    ${single_line for single_line in line.split("\n") for line in content_lines}
+  }
+  """
+  base_indent = " " * (base_indent_level * NginxConfGen.INDENT_SPACE)
+  content_indent = base_indent + " " * NginxConfGen.INDENT_SPACE
+  header_line = f"{base_indent} {block_head} {{"
+  conf_lines = [header_line]
+  for line in content_lines:
+    for single_line in line.split("\n"):
+      fmt_line = f"{content_indent}{single_line}".rstrip()  # truncate space of empty line
+      conf_lines.append(fmt_line)
+  close_line = f"{base_indent}}}"
+  conf_lines.append(close_line)
+  return "\n".join(conf_lines)
