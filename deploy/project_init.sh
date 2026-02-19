@@ -23,8 +23,7 @@ ln -sn "$CONF_SYNC_GIT_LOCAL_DIR/${ENV_NAME}.py" "$PROD_CONF_PROJECT_INSIDE_DIR/
 cd $PROJECT_ROOT_DIR
 echo "now switch to release branch"
 # 1. switch to release branch
-git fetch
-git checkout release
+git fetch origin --prune && git checkout release && git reset --hard origin/release
 # 2. create venv
 echo "create venv"
 uv venv .venv --allow-existing --python 3.12
