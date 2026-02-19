@@ -27,7 +27,7 @@ git fetch
 git checkout release
 # 2. create venv
 echo "create venv"
-uv venv --python 3.12
+uv venv .venv --allow-existing --python 3.12
 # 3. install dependency & install editable mode
 echo "install dependency"
 uv sync
