@@ -1,3 +1,45 @@
+## 26.02.15
+
+### 查看 supertokens get_session 做了啥？
+
+call code
+
+```
+session = await get_session(
+  request,
+  session_required=True,
+  anti_csrf_check=False,
+)
+```
+
+查出来了：
+
+在 `supertokens_python/recipe/session/session_functions.py` 里面：
+
+```
+    if (
+        access_token_info is not None
+        and not always_check_core
+        and access_token_info["parentRefreshTokenHash1"] is None
+    ):
+        print("skip check always-check-core")
+        
+        return GetSessionAPIResponse(
+            GetSessionAPIResponseSession(
+                access_token_info["sessionHandle"],
+                access_token_info["userId"],
+                RecipeUserId(access_token_info["recipeUserId"]),
+                access_token_info["userData"],
+                access_token_info["expiryTime"],
+                access_token_info["tenantId"],
+            )
+        )
+```
+
+在这里，满足条件就会直接返回，否则救护请求 core；打印了下，是因为 access_token_info["parentRefreshTokenHash1"] 有值。
+这个是用于 refresh-token 轮换时做检查用的。感觉不可去除了。
+
+
 ## 26.02.14
 
 ### supertokens get_session 耗时约 0.8s

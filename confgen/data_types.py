@@ -76,7 +76,6 @@ class DeployConfT(BaseModel):
   backend_server: str = "127.0.0.1:3001"  # fastapi default value
   vite_server: str = "127.0.0.1:5173"  # vite default value
   vite_static_dir: str | None
-  """Use str as the trailing `/` will be very very important"""
   hugo_static_dir: str
   nginx: NginxConfT = NginxConfT()
 

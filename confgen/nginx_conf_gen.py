@@ -54,12 +54,12 @@ class NginxConfGen(object):
         f"Vite static dir {self._c.deploy.vite_static_dir} is invalid in static mode"
       )
       vite_inner_setting = _VITE_IN_STATIC_SETTING_FMT.format(
-        VITE_STATIC_DIR=self._c.deploy.vite_static_dir, VITE_PREFIX=_vite_prefix
+        VITE_STATIC_DIR=_ensure_path_endswith_slash(self._c.deploy.vite_static_dir), VITE_PREFIX=_vite_prefix
       )
     vite_section = _VITE_SECTION_FMT.format(VITE_SETTING=vite_inner_setting, VITE_PREFIX=_vite_prefix)
     conf_lines.append(vite_section)
     # * hugo/content
-    hugo_static_dir = self._c.deploy.hugo_static_dir
+    hugo_static_dir = _ensure_path_endswith_slash(self._c.deploy.hugo_static_dir)
     normal_part = _HUGO_NORMAL_PART_FMT.format(HUGO_STATIC_DIR=hugo_static_dir)
     conf_lines.append(normal_part)
     with_auth_part = _HUGO_AUTH_PART_FMT.format(DOC_PREFIX=self._get_doc_prefix(), HUGO_STATIC_DIR=hugo_static_dir)
@@ -245,3 +245,9 @@ def _gen_block_conf(block_head: str, content_lines: list[str], base_indent_level
   close_line = f"{base_indent}}}"
   conf_lines.append(close_line)
   return "\n".join(conf_lines)
+
+
+def _ensure_path_endswith_slash(p: str | Path) -> str:
+  s = str(p)
+  s.rstrip("/")
+  return f"{s}/"
