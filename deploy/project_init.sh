@@ -1,8 +1,15 @@
 #!/bin/bash
+# run this file in the current dir.
+# or use bash to run it.
+
+
 set -e
 set -x
 
-source .env
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# source env exported by env_init.sh
+source $SCRIPT_DIR/.env
 
 # get env
 ENV_NAME="$ENV"
@@ -41,4 +48,12 @@ ln -sn "$PROJECT_ROOT_DIR/nginx/${ENV_NAME}.conf" "$NGINX_TGT_DIR/docgate.conf" 
 echo "Pnpm install & Vite build"
 cd  "$PROJECT_ROOT_DIR/frontend"
 pnpm i && pnpm run build
+
+# 6. install gunicorn services for fastapi
+echo "Install gunicorn for fastapi services"
+sudo cp $SCRIPT_DIR/docgate-fastapi.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable docgate-fastapi
+sudo systemctl start docgate-fastapi
+
 echo "done"
