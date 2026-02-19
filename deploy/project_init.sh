@@ -24,6 +24,7 @@ ln -s "$PROD_CONF_REPO_DIR/$PROD_CONF_ORIGIN_PATH" "$PROD_CONF_PROJECT_INSIDE_DI
 cd $PROJECT_ROOT_DIR
 echo "now switch to release branch"
 # 1. switch to release branch
+git fetch
 git checkout release
 # 2. create venv
 echo "create venv"
