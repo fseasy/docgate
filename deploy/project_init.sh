@@ -37,9 +37,9 @@ echo "Generate conf for $ENV_NAME"
 cd  "$PROJECT_ROOT_DIR/confgen"
 uv run python gen.py -e $ENV_NAME
 echo "Link nginx conf"
-ln -sn "$NGINX_TGT_DIR/docgate.conf" "$PROJECT_ROOT_DIR/nginx/${ENV_NAME}.conf" || true
+ln -sn "$PROJECT_ROOT_DIR/nginx/${ENV_NAME}.conf" "$NGINX_TGT_DIR/docgate.conf" || true
 # 5. build vite
-echo "Vite build"
+echo "Pnpm install & Vite build"
 cd  "$PROJECT_ROOT_DIR/frontend"
-pnpm run build
+pnpm i && pnpm run build
 echo "done"
