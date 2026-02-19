@@ -1,4 +1,8 @@
 #!/bin/bash
+set -e
+set -x
+
+source .env
 
 # get env
 ENV_NAME="$ENV"
