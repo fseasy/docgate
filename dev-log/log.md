@@ -4,6 +4,10 @@
 
 command -v <name>: 这是一个 Shell 内置命令，用于查找指定命令的路径。如果命令存在，它返回 0（真）；如果不存在，它返回非 0（假）。
 
+### Mac 也是大小写不敏感，而且似乎触发了什么逻辑，导致大小写提交到 git 后变了
+
+我在 mac 上，显示的是  ContentPageLayout.tsx, 但是  linux 上显示 contentPageLayout.tsx
+
 
 ## 26.02.15
 
