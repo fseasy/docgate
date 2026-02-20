@@ -20,7 +20,14 @@ class NginxConfGen(object):
 
   def _gen_upstream(self) -> str:
     d = self._c.deploy
-    auth_upstream = _gen_block_conf("upstream api_server", [f"server {d.backend_server};"])
+    auth_upstream = _gen_block_conf(
+      "upstream api_server",
+      [
+        "# max_fails=0: avoid block this server when it's down",
+        f"server {d.backend_server} max_fails=0;",
+        "keepalive 32;",
+      ],
+    )
     confs = [auth_upstream]
 
     if self._c.deploy.vite_in_server_mode:
@@ -29,15 +36,51 @@ class NginxConfGen(object):
     return "\n".join(confs)
 
   def _gen_server(self) -> str:
+    main_server = self._gen_main_server_block()
+    servers = [main_server]
     n = self._c.deploy.nginx
-    conf_lines = [f"listen {n.listen_port};"]
+    if n.standard_reverse_proxy:
+      assert n.server_name, "server-name must exist in standard reverse proxy mode"
+      _80_server = self._gen_80_redirect_server(n.server_name)
+      servers.append(_80_server)
+    return "\n\n".join(servers)
+
+  def _gen_main_server_block(self) -> str:
+    n = self._c.deploy.nginx
+    if not n.standard_reverse_proxy:
+      conf_lines = [f"listen {n.listen_port};"]
+    else:
+      conf_lines = [
+        "listen 443 ssl;",
+        "listen [::]:443 ssl;",
+      ]
+      assert n.ssl_conf_lines, "SSL conf is empty in standard reverse proxy"
+      conf_lines.extend(n.ssl_conf_lines)
     if n.server_name:
       server_line = f"server_name {n.server_name};"
       conf_lines.append(server_line)
+    else:
+      assert not n.standard_reverse_proxy, "server_name is required in standard reverse proxy"
     if n.access_log_path:
       log_line = f"access_log {n.access_log_path.absolute()} debug_log;"
       conf_lines.append(log_line)
-    conf_lines.extend(["client_max_body_size 1m;", "large_client_header_buffers 4 16k;"])
+      log_path = Path(n.access_log_path)
+      if not log_path.exists():
+        # make parent log dir, or nginx will failed to start
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+    conf_lines.extend(
+      [
+        "",
+        "client_max_body_size 1m;",
+        "large_client_header_buffers 4 32k;",
+        "# very important, to fix the error:",
+        "# - `upstream sent too big header while reading response header from upstream`",
+        "proxy_buffer_size          128k; ",
+        "proxy_buffers              4 256k;",
+        "proxy_busy_buffers_size    256k;",
+        "",
+      ]
+    )
     # * auth-check
     conf_lines.append(_AUTH_CHECK)
     # * api
@@ -62,8 +105,20 @@ class NginxConfGen(object):
     hugo_static_dir = _ensure_path_endswith_slash(self._c.deploy.hugo_static_dir)
     normal_part = _HUGO_NORMAL_PART_FMT.format(HUGO_STATIC_DIR=hugo_static_dir)
     conf_lines.append(normal_part)
-    with_auth_part = _HUGO_AUTH_PART_FMT.format(DOC_PREFIX=self._get_doc_prefix(), HUGO_STATIC_DIR=hugo_static_dir)
+    hugo_public_doc_path_pattern = _path_set2location_re(self._c.deploy.hugo_public_doc_paths)
+    with_auth_part = _HUGO_AUTH_PART_FMT.format(
+      DOC_PREFIX=self._get_doc_prefix(), HUGO_STATIC_DIR=hugo_static_dir, PUBLIC_DOC_SET_RE=hugo_public_doc_path_pattern
+    )
     conf_lines.append(with_auth_part)
+    return _gen_block_conf("server", conf_lines)
+
+  def _gen_80_redirect_server(self, server_name: str) -> str:
+    conf_lines = [
+      "listen 80;",
+      "listen [::]:80;",
+      f"server_name {server_name};",
+      "return 301 https://$host$request_uri;",
+    ]
     return _gen_block_conf("server", conf_lines)
 
   def _get_api_prefix(self) -> str:
@@ -100,9 +155,14 @@ location = /_docgate/auth_check {
     proxy_set_header X-Original-URI $request_uri;
     proxy_set_header Cookie $http_cookie;
 
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
     proxy_connect_timeout 5s;
     proxy_send_timeout 60s;
     proxy_read_timeout 90s;
+
+    proxy_intercept_errors off;  # return error code directly
 
     proxy_buffering off;
 }
@@ -119,10 +179,17 @@ location ^~ /{API_PREFIX}/ {{
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
     proxy_redirect off;
     proxy_connect_timeout 5s;
     proxy_read_timeout 90s;
     proxy_send_timeout 90s;
+
+    proxy_intercept_errors off;  # return error code directly
+    # Disable cache in browser side (avoid 301 issue when api failed temporarily)
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
 }}
 """
 
@@ -188,33 +255,52 @@ _HUGO_AUTH_PART_FMT = r"""
 # ! use `^~ (longest matching prefix)` for higher priority
 # * `^~` means longest-prefix-matching, the higher order matching rule!
 location ^~ /{DOC_PREFIX}/ {{
+    root {HUGO_STATIC_DIR};
+    # default strategy: go auth
     auth_request /_docgate/auth_check;
     auth_request_set $auth_status $upstream_status;
 
     error_page 401 = @session_handle_redirect;
     error_page 403 = @purchase_redirect;
-
-    root {HUGO_STATIC_DIR};
-    try_files $uri $uri/ /{DOC_PREFIX}/index.html;
-
     # avoid cache for index.html (because customer will access by /docs/xxx/), so rule is on this level.
     add_header Cache-Control "no-store, no-cache, must-revalidate, private";
     add_header Pragma "no-cache";
     add_header Expires 0;
+    
+    # * Special public subset (only the specific page & direct resource will be open)
+    location ~* ^/{DOC_PREFIX}/{PUBLIC_DOC_SET_RE} {{
+        auth_request off;
+        try_files $uri $uri/ /{DOC_PREFIX}/index.html;
+        add_header Cache-Control "public, max-age=3600";
+    }}
+
+    # * Resource rule1: add cache for none html resources under /docs/ (with auth by inherent)
+    location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif)$ {{
+        try_files $uri =404;
+        add_header Cache-Control "private, max-age=604800";
+    }}
+
+    # * Resource rule2: add cache for none html resources under /docs/ (without auth)
+    location ~* ^/{DOC_PREFIX}/.*\.(css|js|woff|woff2|ttf|eot|svg|otf)$ {{
+        auth_request off;
+        root {HUGO_STATIC_DIR};
+
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=604800";
+    }}
+
+    try_files $uri $uri/ /{DOC_PREFIX}/index.html;
 }}
 
-# * add cache for none html resources under /docs/
-location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif|css|js|woff|woff2|ttf|eot|svg|otf)$ {{
-    auth_request /_docgate/auth_check;
 
-    root {HUGO_STATIC_DIR};
 
-    try_files $uri =404;
-    add_header Cache-Control "private, max-age=604800";
-}}
-
-# * go to the hugo /50x/index.html (based on `location /` routing)
+# * 50x is from api, so return a json will be safer
 error_page 500 502 503 504 /50x;
+location = /50x {{
+    internal;
+    default_type application/json;
+    return 502 '{{"code": 502, "message": "Backend server is down"}}';
+}}
 
 # * go to api interface for session refresh and redirect
 location @session_handle_redirect {{
@@ -236,7 +322,7 @@ def _gen_block_conf(block_head: str, content_lines: list[str], base_indent_level
   """
   base_indent = " " * (base_indent_level * NginxConfGen.INDENT_SPACE)
   content_indent = base_indent + " " * NginxConfGen.INDENT_SPACE
-  header_line = f"{base_indent} {block_head} {{"
+  header_line = f"{base_indent}{block_head} {{"
   conf_lines = [header_line]
   for line in content_lines:
     for single_line in line.split("\n"):
@@ -251,3 +337,23 @@ def _ensure_path_endswith_slash(p: str | Path) -> str:
   s = str(p)
   s.rstrip("/")
   return f"{s}/"
+
+
+def _path_set2location_re(paths: set[str] | None) -> str:
+  import re
+
+  # make it first match the longest one, because we have an extra suffix matching logic
+  long2short_paths = sorted(paths or [], key=lambda v: len(v), reverse=True)
+  safe_paths = [re.escape(p) for p in long2short_paths]
+  inner_group = "|".join(safe_paths)
+
+  # allowed resources
+  exts = "mp3|mp4|m4a|wav|pdf|css|js|jpe?g|png|gif|svg|woff2?|otf|ttf|pdf"
+
+  if inner_group:
+    pattern = rf"(?:{inner_group})(?:/|/index\.html|/[^/]+\.(?:{exts}))?$"
+  else:
+    # if empty, only open the root
+    pattern = rf"(?:/|/index\.html|/[^/]+\.(?:{exts}))?$"
+
+  return pattern

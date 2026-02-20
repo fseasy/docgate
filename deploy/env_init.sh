@@ -17,14 +17,6 @@ else
     echo "uv already installed. Skipping."
 fi
 
-# install volta (only if not installed)
-if ! command -v volta &> /dev/null; then
-    echo "Installing Volta..."
-    curl https://get.volta.sh | bash
-else
-    echo "Volta already installed. Skipping."
-fi
-
 # install pnpm (only if not installed)
 if ! command -v pnpm &> /dev/null; then
     echo "Installing pnpm..."
@@ -51,8 +43,8 @@ PROJECT_ROOT_LOCAL_DIR=/root/deploy/dajuan-english/docgate
 VENV_BIN_DIR="$PROJECT_ROOT_LOCAL_DIR/.venv/bin"
 DOCGATE_SRC_DIR="$PROJECT_ROOT_LOCAL_DIR/docgate"
 CONF_SYNC_GIT_REPO_LOCAL_DIR=/root/github/private-conf/web/docgate/confgen
-NGINX_SYSTEM_CONF_DIR=/etc/nginx/sites-enabled
-
+NGINX_SYSTEM_CONF_DIR=/etc/nginx/conf.d
+SYSTEMD_SERVICE_NAME="docgate-fastapi"
 
 cat > $SCRIPT_DIR/.env << EOF
 
@@ -60,11 +52,12 @@ ENV=$ENV
 PROJECT_ROOT_LOCAL_DIR=$PROJECT_ROOT_LOCAL_DIR
 CONF_SYNC_GIT_REPO_LOCAL_DIR=$CONF_SYNC_GIT_REPO_LOCAL_DIR
 NGINX_SYSTEM_CONF_DIR=$NGINX_SYSTEM_CONF_DIR
+SYSTEMD_SERVICE_NAME=$SYSTEMD_SERVICE_NAME
 
 EOF
 
 # write the systemd service file.
-cat > $SCRIPT_DIR/docgate-fastapi.service << EOF
+cat > "$SCRIPT_DIR/$SYSTEMD_SERVICE_NAME.service" << EOF
 
 [Unit]
 Description=Docgate FastAPI App

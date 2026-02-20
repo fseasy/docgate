@@ -2,7 +2,6 @@
 # run this file in the current dir.
 # or use bash to run it.
 
-
 set -e
 set -x
 
@@ -11,23 +10,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # source env exported by env_init.sh
 source $SCRIPT_DIR/.env
 
-# get env
-ENV_NAME="$ENV"
-PROJECT_ROOT_DIR=$PROJECT_ROOT_LOCAL_DIR
-CONF_SYNC_GIT_LOCAL_DIR=$CONF_SYNC_GIT_REPO_LOCAL_DIR
-NGINX_TGT_DIR=$NGINX_SYSTEM_CONF_DIR
+# check env
+: "${ENV?env-var ENV is required}"
+: "${PROJECT_ROOT_LOCAL_DIR?env-var PROJECT_ROOT_LOCAL_DIR is required}"
+: "${CONF_SYNC_GIT_REPO_LOCAL_DIR?env-var CONF_SYNC_GIT_REPO_LOCAL_DIR is required}"
+: "${NGINX_SYSTEM_CONF_DIR?env-var NGINX_SYSTEM_CONF_DIR is required}"
+: "${SYSTEMD_SERVICE_NAME?env-var SYSTEMD_SERVICE_NAME is required}"
 
-PROD_CONF_PROJECT_INSIDE_DIR="$PROJECT_ROOT_DIR/confgen/uni-conf/$ENV_NAME"
+
+PROD_CONF_PROJECT_INSIDE_DIR="$PROJECT_ROOT_LOCAL_DIR/confgen/uni-conf/$ENV"
 
 # prepare conf from another private repo: 
 # 1. enter the private repo to fetch the latest conf 2. link it to the project inside
-echo "pull the config file ${ENV_NAME}.py from ${PROD_CONF_REPO_DIR} git repo"
-cd $CONF_SYNC_GIT_LOCAL_DIR
+echo "pull the config file ${ENV}.py from ${PROD_CONF_REPO_DIR} git repo"
+cd $CONF_SYNC_GIT_REPO_LOCAL_DIR
 git pull
 mkdir -p $PROD_CONF_PROJECT_INSIDE_DIR
-ln -sn "$CONF_SYNC_GIT_LOCAL_DIR/${ENV_NAME}.py" "$PROD_CONF_PROJECT_INSIDE_DIR/conf.py" || true # skip set -x
+ln -sn "$CONF_SYNC_GIT_REPO_LOCAL_DIR/${ENV}.py" "$PROD_CONF_PROJECT_INSIDE_DIR/conf.py" || true # skip set -x
 # go to workdir
-cd $PROJECT_ROOT_DIR
+cd $PROJECT_ROOT_LOCAL_DIR
 echo "now switch to release branch"
 # 1. switch to release branch
 git fetch origin --prune && git checkout release && git reset --hard origin/release
@@ -39,21 +40,33 @@ echo "install dependency"
 uv sync
 uv pip install -e .
 # 4. gen conf; link the nginx conf to the system nginx conf dir
-echo "Generate conf for $ENV_NAME"
-cd  "$PROJECT_ROOT_DIR/confgen"
-uv run python gen.py -e $ENV_NAME
+echo "Generate conf for $ENV"
+cd  "$PROJECT_ROOT_LOCAL_DIR/confgen"
+uv run python gen.py -e $ENV
 echo "Link nginx conf"
-ln -sn "$PROJECT_ROOT_DIR/nginx/${ENV_NAME}.conf" "$NGINX_TGT_DIR/docgate.conf" || true
+ln -sn "$PROJECT_ROOT_LOCAL_DIR/nginx/${ENV}.conf" "$NGINX_SYSTEM_CONF_DIR/docgate.conf" || true
 # 5. build vite
 echo "Pnpm install & Vite build"
-cd  "$PROJECT_ROOT_DIR/frontend"
+cd  "$PROJECT_ROOT_LOCAL_DIR/frontend"
 pnpm i && pnpm run build
 
 # 6. install gunicorn services for fastapi
-echo "Install gunicorn for fastapi services"
-sudo cp $SCRIPT_DIR/docgate-fastapi.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable docgate-fastapi
-sudo systemctl start docgate-fastapi
 
+service_fname="$SYSTEMD_SERVICE_NAME.service"
+service_target_fpath="/etc/systemd/system/$service_fname"
+service_source_fpath="$SCRIPT_DIR/$service_fname"
+
+if [ ! -f "$service_target_fpath" ]; then
+  echo "Install gunicorn for fastapi services"
+  sudo cp $service_source_fpath $service_target_fpath
+  sudo systemctl daemon-reload
+  sudo systemctl enable $SYSTEMD_SERVICE_NAME
+  sudo systemctl start $SYSTEMD_SERVICE_NAME
+else
+  echo "Update gunicorn fastapi services"
+  sudo cp $service_source_fpath $service_target_fpath
+  sudo systemctl daemon-reload
+  sudo systemctl enable $SYSTEMD_SERVICE_NAME
+  sudo systemctl restart $SYSTEMD_SERVICE_NAME
+fi
 echo "done"
