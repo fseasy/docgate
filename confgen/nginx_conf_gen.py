@@ -57,6 +57,10 @@ class NginxConfGen(object):
     if n.access_log_path:
       log_line = f"access_log {n.access_log_path.absolute()} debug_log;"
       conf_lines.append(log_line)
+      log_path = Path(n.access_log_path)
+      if not log_path.exists():
+        # make parent log dir, or nginx will failed to start
+        log_path.parent.mkdir(parents=True, exist_ok=True)
     conf_lines.extend(["client_max_body_size 1m;", "large_client_header_buffers 4 16k;"])
     # * auth-check
     conf_lines.append(_AUTH_CHECK)
