@@ -66,9 +66,36 @@ def _gen_abs_dir(rel_dir: str, check: bool = True) -> Path:
 
 
 class NginxConfT(BaseModel):
+  standard_reverse_proxy: bool = False
+  """If true, 
+  - will ignore the `listen_port` and listen 80 & 443 on ipv4 & ipv6 public network.
+    It will create 2 server blocks: a. 443 block (main) b. 80 block that is redirected to the 443
+  - will assert server_name not None
+  - will assert SSL config not None and not empty
+  """
   listen_port: int = 3333
   server_name: str | None = None
+  ssl_conf_lines: list[str] | None = None
   access_log_path: Path | None = Field(default=_gen_abs_dir("../nginx/log/access.log", check=False))
+
+
+def _gen_default_hugo_public_doc_paths() -> set[str]:
+  """Note: the path/link should not contain the /docs/ prefix
+  i.e.:
+  real-path    | sub-path
+  /docs/       | ""
+  /docs/page1  | page1
+  /docs/page2/ | page2 (you don't need to add the trailing slash)
+  """
+  sub_paths = [
+    "",  # doc root
+    "010-update-log",
+    "020-usage-manual",
+    "030-routine-care",
+    "030-routine-care/getup",
+    "030-routine-care/020-putting-on-clothes",
+  ]
+  return set(sub_paths)
 
 
 class DeployConfT(BaseModel):
@@ -77,6 +104,7 @@ class DeployConfT(BaseModel):
   vite_server: str = "127.0.0.1:5173"  # vite default value
   vite_static_dir: str | None
   hugo_static_dir: str
+  hugo_public_doc_paths: set[str] | None = Field(default_factory=_gen_default_hugo_public_doc_paths)
   nginx: NginxConfT = NginxConfT()
 
 

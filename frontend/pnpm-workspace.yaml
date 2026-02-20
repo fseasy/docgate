@@ -1,3 +1,5 @@
 ignoredBuiltDependencies:
   - browser-tabs-lock
   - esbuild
+
+useNodeVersion: 20.20.0

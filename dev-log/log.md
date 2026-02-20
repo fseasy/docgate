@@ -1,3 +1,39 @@
+## 26.02.20
+
+### SSL 证书
+
+准备使用 english.dajuan.fseasy.top, 结果发现 SSL 证书不通过。
+
+查询后，大概是之前认证的 *.fseasy.top 是不能 cover 住这种二级子域名的。
+
+一方面增加 *.dajuan.fseasy.top，另一方面，去掉 english 前缀吧。
+
+### Nginx proxy buffer 太小导致 refresh session 失败
+
+```
+ The 'front-token' header is missing from a successful refresh-session response. The most likely causes are proxy settings (e.g.: 'front-token' missing from 'access-control-expose-headers' or a proxy stripping this header). Please investigate your API.
+```
+
+前端报错这个；ChatGPT 建议看下是不是 proxy server 把 header 给清理了，看了下没有；
+然后想着去看下 nginx error log，然后发现了问题：
+
+```
+2026/02/20 20:20:49 [error] 127507#127507: *539 upstream sent too big header while reading response header from upstream, client: 101.207.26.113, server: dajuan.fseasy.top, request: "POST /api/auth/session/refresh HTTP/2.0", upstream: "http://127.0.0.1:3001/api/auth/session/refresh", host: "dajuan.fseasy.top", referrer: "https://dajuan.fseasy.top/app/manage"
+```
+
+Gemini 说是 header 的问题。增加：
+
+```
+        proxy_buffer_size          128k; 
+        # 增加读取响应内容的缓冲区数量和大小
+        proxy_buffers              4 256k;
+        # 忙碌时的缓冲区大小，通常设为 proxy_buffers 的一部分
+        proxy_busy_buffers_size    256k;
+```
+
+问题解决。
+
+
 ## 26.02.19
 
 ### shell 命令
