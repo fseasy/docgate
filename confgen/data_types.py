@@ -66,8 +66,16 @@ def gen_abs_dir(rel_dir: str, check: bool = True) -> Path:
 
 
 class NginxConfT(BaseModel):
+  standard_reverse_proxy: bool = False
+  """If true, 
+  - will ignore the `listen_port` and listen 80 & 443 on ipv4 & ipv6 public network.
+    It will create 2 server blocks: a. 443 block (main) b. 80 block that is redirected to the 443
+  - will assert server_name not None
+  - will assert SSL config not None and not empty
+  """
   listen_port: int = 3333
   server_name: str | None = None
+  ssl_conf_lines: list[str] | None = None
   access_log_path: Path | None = Field(default=gen_abs_dir("../nginx/log/access.log", check=False))
 
 

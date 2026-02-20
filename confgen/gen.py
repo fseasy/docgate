@@ -1,7 +1,7 @@
 import argparse
+import sys
 from pathlib import Path
 from typing import Any
-import sys
 
 from pydantic import BaseModel
 
@@ -25,6 +25,7 @@ def main():
   _gen_backend_conf(env, conf)
   _gen_vite_conf(env, conf)
   _gen_nginx_conf(env, conf)
+  print("===> Finished.")
 
 
 def _get_env_conf(env: EnvT) -> EnvConfT:

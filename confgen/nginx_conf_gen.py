@@ -29,11 +29,31 @@ class NginxConfGen(object):
     return "\n".join(confs)
 
   def _gen_server(self) -> str:
+    main_server = self._gen_main_server_block()
+    servers = [main_server]
     n = self._c.deploy.nginx
-    conf_lines = [f"listen {n.listen_port};"]
+    if n.standard_reverse_proxy:
+      assert n.server_name, "server-name must exist in standard reverse proxy mode"
+      _80_server = self._gen_80_redirect_server(n.server_name)
+      servers.append(_80_server)
+    return "\n\n".join(servers)
+
+  def _gen_main_server_block(self) -> str:
+    n = self._c.deploy.nginx
+    if not n.standard_reverse_proxy:
+      conf_lines = [f"listen {n.listen_port};"]
+    else:
+      conf_lines = [
+        "listen 443 ssl;",
+        "listen [::]:443 ssl;",
+      ]
+      assert n.ssl_conf_lines, "SSL conf is empty in standard reverse proxy"
+      conf_lines.extend(n.ssl_conf_lines)
     if n.server_name:
       server_line = f"server_name {n.server_name};"
       conf_lines.append(server_line)
+    else:
+      assert not n.standard_reverse_proxy, "server_name is required in standard reverse proxy"
     if n.access_log_path:
       log_line = f"access_log {n.access_log_path.absolute()} debug_log;"
       conf_lines.append(log_line)
@@ -64,6 +84,15 @@ class NginxConfGen(object):
     conf_lines.append(normal_part)
     with_auth_part = _HUGO_AUTH_PART_FMT.format(DOC_PREFIX=self._get_doc_prefix(), HUGO_STATIC_DIR=hugo_static_dir)
     conf_lines.append(with_auth_part)
+    return _gen_block_conf("server", conf_lines)
+
+  def _gen_80_redirect_server(self, server_name: str) -> str:
+    conf_lines = [
+      "listen 80;",
+      "listen [::]:80;",
+      f"server_name {server_name};",
+      "return 301 https://$host$request_uri;",
+    ]
     return _gen_block_conf("server", conf_lines)
 
   def _get_api_prefix(self) -> str:
