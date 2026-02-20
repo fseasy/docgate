@@ -51,7 +51,7 @@ PROJECT_ROOT_LOCAL_DIR=/root/deploy/dajuan-english/docgate
 VENV_BIN_DIR="$PROJECT_ROOT_LOCAL_DIR/.venv/bin"
 DOCGATE_SRC_DIR="$PROJECT_ROOT_LOCAL_DIR/docgate"
 CONF_SYNC_GIT_REPO_LOCAL_DIR=/root/github/private-conf/web/docgate/confgen
-NGINX_SYSTEM_CONF_DIR=/etc/nginx/sites-enabled
+NGINX_SYSTEM_CONF_DIR=/etc/nginx/conf.d
 SYSTEMD_SERVICE_NAME="docgate-fastapi"
 
 cat > $SCRIPT_DIR/.env << EOF
