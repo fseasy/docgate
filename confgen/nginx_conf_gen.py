@@ -20,7 +20,14 @@ class NginxConfGen(object):
 
   def _gen_upstream(self) -> str:
     d = self._c.deploy
-    auth_upstream = _gen_block_conf("upstream api_server", [f"server {d.backend_server};"])
+    auth_upstream = _gen_block_conf(
+      "upstream api_server",
+      [
+        "# max_fails=0: avoid block this server when it's down",
+        f"server {d.backend_server} max_fails=0;",
+        "keepalive 32;",
+      ],
+    )
     confs = [auth_upstream]
 
     if self._c.deploy.vite_in_server_mode:
@@ -145,9 +152,14 @@ location = /_docgate/auth_check {
     proxy_set_header X-Original-URI $request_uri;
     proxy_set_header Cookie $http_cookie;
 
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
     proxy_connect_timeout 5s;
     proxy_send_timeout 60s;
     proxy_read_timeout 90s;
+
+    proxy_intercept_errors off;  # return error code directly
 
     proxy_buffering off;
 }
@@ -164,10 +176,17 @@ location ^~ /{API_PREFIX}/ {{
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
     proxy_redirect off;
     proxy_connect_timeout 5s;
     proxy_read_timeout 90s;
     proxy_send_timeout 90s;
+
+    proxy_intercept_errors off;  # return error code directly
+    # Disable cache in browser side (avoid 301 issue when api failed temporarily)
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
 }}
 """
 
@@ -258,8 +277,13 @@ location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif|css|js|woff|wof
     add_header Cache-Control "private, max-age=604800";
 }}
 
-# * go to the hugo /50x/index.html (based on `location /` routing)
+# * 50x is from api, so return a json will be safer
 error_page 500 502 503 504 /50x;
+location = /50x {{
+    internal;
+    default_type application/json;
+    return 502 '{{"code": 502, "message": "Backend server is down"}}';
+}}
 
 # * go to api interface for session refresh and redirect
 location @session_handle_redirect {{
@@ -281,7 +305,7 @@ def _gen_block_conf(block_head: str, content_lines: list[str], base_indent_level
   """
   base_indent = " " * (base_indent_level * NginxConfGen.INDENT_SPACE)
   content_indent = base_indent + " " * NginxConfGen.INDENT_SPACE
-  header_line = f"{base_indent} {block_head} {{"
+  header_line = f"{base_indent}{block_head} {{"
   conf_lines = [header_line]
   for line in content_lines:
     for single_line in line.split("\n"):
