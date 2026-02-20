@@ -17,14 +17,6 @@ else
     echo "uv already installed. Skipping."
 fi
 
-# install volta (only if not installed)
-if ! command -v volta &> /dev/null; then
-    echo "Installing Volta..."
-    curl https://get.volta.sh | bash
-else
-    echo "Volta already installed. Skipping."
-fi
-
 # install pnpm (only if not installed)
 if ! command -v pnpm &> /dev/null; then
     echo "Installing pnpm..."
