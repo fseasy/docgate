@@ -18,7 +18,6 @@ source $SCRIPT_DIR/.env
 : "${SYSTEMD_SERVICE_NAME?env-var SYSTEMD_SERVICE_NAME is required}"
 
 
-
 PROD_CONF_PROJECT_INSIDE_DIR="$PROJECT_ROOT_LOCAL_DIR/confgen/uni-conf/$ENV"
 
 # prepare conf from another private repo: 
