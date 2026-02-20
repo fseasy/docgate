@@ -79,12 +79,32 @@ class NginxConfT(BaseModel):
   access_log_path: Path | None = Field(default=_gen_abs_dir("../nginx/log/access.log", check=False))
 
 
+def _gen_default_hugo_public_doc_paths() -> set[str]:
+  """Note: the path/link should not contain the /docs/ prefix
+  i.e.:
+  real-path    | sub-path
+  /docs/       | ""
+  /docs/page1  | page1
+  /docs/page2/ | page2 (you don't need to add the trailing slash)
+  """
+  sub_paths = [
+    "",  # doc root
+    "010-update-log",
+    "020-usage-manual",
+    "030-routine-care",
+    "030-routine-care/getup",
+    "030-routine-care/020-putting-on-clothes",
+  ]
+  return set(sub_paths)
+
+
 class DeployConfT(BaseModel):
   vite_in_server_mode: bool
   backend_server: str = "127.0.0.1:3001"  # fastapi default value
   vite_server: str = "127.0.0.1:5173"  # vite default value
   vite_static_dir: str | None
   hugo_static_dir: str
+  hugo_public_doc_paths: set[str] | None = Field(default_factory=_gen_default_hugo_public_doc_paths)
   nginx: NginxConfT = NginxConfT()
 
 

@@ -105,7 +105,10 @@ class NginxConfGen(object):
     hugo_static_dir = _ensure_path_endswith_slash(self._c.deploy.hugo_static_dir)
     normal_part = _HUGO_NORMAL_PART_FMT.format(HUGO_STATIC_DIR=hugo_static_dir)
     conf_lines.append(normal_part)
-    with_auth_part = _HUGO_AUTH_PART_FMT.format(DOC_PREFIX=self._get_doc_prefix(), HUGO_STATIC_DIR=hugo_static_dir)
+    hugo_public_doc_path_pattern = _path_set2location_re(self._c.deploy.hugo_public_doc_paths)
+    with_auth_part = _HUGO_AUTH_PART_FMT.format(
+      DOC_PREFIX=self._get_doc_prefix(), HUGO_STATIC_DIR=hugo_static_dir, PUBLIC_DOC_SET_RE=hugo_public_doc_path_pattern
+    )
     conf_lines.append(with_auth_part)
     return _gen_block_conf("server", conf_lines)
 
@@ -252,30 +255,44 @@ _HUGO_AUTH_PART_FMT = r"""
 # ! use `^~ (longest matching prefix)` for higher priority
 # * `^~` means longest-prefix-matching, the higher order matching rule!
 location ^~ /{DOC_PREFIX}/ {{
+    root {HUGO_STATIC_DIR};
+    # default strategy: go auth
     auth_request /_docgate/auth_check;
     auth_request_set $auth_status $upstream_status;
 
     error_page 401 = @session_handle_redirect;
     error_page 403 = @purchase_redirect;
-
-    root {HUGO_STATIC_DIR};
-    try_files $uri $uri/ /{DOC_PREFIX}/index.html;
-
     # avoid cache for index.html (because customer will access by /docs/xxx/), so rule is on this level.
     add_header Cache-Control "no-store, no-cache, must-revalidate, private";
     add_header Pragma "no-cache";
     add_header Expires 0;
+    
+    # * Special public subset (only the specific page & direct resource will be open)
+    location ~* ^/{DOC_PREFIX}/{PUBLIC_DOC_SET_RE} {{
+        auth_request off;
+        try_files $uri $uri/ /{DOC_PREFIX}/index.html;
+        add_header Cache-Control "public, max-age=3600";
+    }}
+
+    # * Resource rule1: add cache for none html resources under /docs/ (with auth by inherent)
+    location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif)$ {{
+        try_files $uri =404;
+        add_header Cache-Control "private, max-age=604800";
+    }}
+
+    # * Resource rule2: add cache for none html resources under /docs/ (without auth)
+    location ~* ^/{DOC_PREFIX}/.*\.(css|js|woff|woff2|ttf|eot|svg|otf)$ {{
+        auth_request off;
+        root {HUGO_STATIC_DIR};
+
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=604800";
+    }}
+
+    try_files $uri $uri/ /{DOC_PREFIX}/index.html;
 }}
 
-# * add cache for none html resources under /docs/
-location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif|css|js|woff|woff2|ttf|eot|svg|otf)$ {{
-    auth_request /_docgate/auth_check;
 
-    root {HUGO_STATIC_DIR};
-
-    try_files $uri =404;
-    add_header Cache-Control "private, max-age=604800";
-}}
 
 # * 50x is from api, so return a json will be safer
 error_page 500 502 503 504 /50x;
@@ -320,3 +337,23 @@ def _ensure_path_endswith_slash(p: str | Path) -> str:
   s = str(p)
   s.rstrip("/")
   return f"{s}/"
+
+
+def _path_set2location_re(paths: set[str] | None) -> str:
+  import re
+
+  # make it first match the longest one, because we have an extra suffix matching logic
+  long2short_paths = sorted(paths or [], key=lambda v: len(v), reverse=True)
+  safe_paths = [re.escape(p) for p in long2short_paths]
+  inner_group = "|".join(safe_paths)
+
+  # allowed resources
+  exts = "mp3|mp4|m4a|wav|pdf|css|js|jpe?g|png|gif|svg|woff2?|otf|ttf|pdf"
+
+  if inner_group:
+    pattern = rf"(?:{inner_group})(?:/|/index\.html|/[^/]+\.(?:{exts}))?$"
+  else:
+    # if empty, only open the root
+    pattern = rf"(?:/|/index\.html|/[^/]+\.(?:{exts}))?$"
+
+  return pattern
