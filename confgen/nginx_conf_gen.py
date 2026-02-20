@@ -61,7 +61,19 @@ class NginxConfGen(object):
       if not log_path.exists():
         # make parent log dir, or nginx will failed to start
         log_path.parent.mkdir(parents=True, exist_ok=True)
-    conf_lines.extend(["client_max_body_size 1m;", "large_client_header_buffers 4 16k;"])
+    conf_lines.extend(
+      [
+        "",
+        "client_max_body_size 1m;",
+        "large_client_header_buffers 4 32k;",
+        "# very important, to fix the error:",
+        "# - `upstream sent too big header while reading response header from upstream`",
+        "proxy_buffer_size          128k; ",
+        "proxy_buffers              4 256k;",
+        "proxy_busy_buffers_size    256k;",
+        "",
+      ]
+    )
     # * auth-check
     conf_lines.append(_AUTH_CHECK)
     # * api
