@@ -56,7 +56,7 @@ class SMTPConfT(BaseModel):
   SMTP_SECURE: bool
 
 
-def _gen_abs_dir(rel_dir: str, check: bool = True) -> Path:
+def gen_abs_dir(rel_dir: str, check: bool = True) -> Path:
   _cur = Path(__file__).parent
   abs_dir = _cur / rel_dir
   abs_dir = abs_dir.resolve().absolute()
@@ -68,7 +68,7 @@ def _gen_abs_dir(rel_dir: str, check: bool = True) -> Path:
 class NginxConfT(BaseModel):
   listen_port: int = 3333
   server_name: str | None = None
-  access_log_path: Path | None = Field(default=_gen_abs_dir("../nginx/log/access.log", check=False))
+  access_log_path: Path | None = Field(default=gen_abs_dir("../nginx/log/access.log", check=False))
 
 
 class DeployConfT(BaseModel):
@@ -81,9 +81,9 @@ class DeployConfT(BaseModel):
 
 
 class ModuleDirT(BaseModel):
-  backend: Path = Field(description="backend dir", default=_gen_abs_dir("../docgate"))
-  vite: Path = Field(description="vite dir", default=_gen_abs_dir("../frontend"))
-  nginx: Path = Field(description="nginx conf dir", default=_gen_abs_dir("../nginx"))
+  backend: Path = Field(description="backend dir", default=gen_abs_dir("../docgate"))
+  vite: Path = Field(description="vite dir", default=gen_abs_dir("../frontend"))
+  nginx: Path = Field(description="nginx conf dir", default=gen_abs_dir("../nginx"))
 
 
 class EnvConfT(BaseModel):
@@ -101,7 +101,7 @@ class BackupManager(object):
     import time
 
     sig = time.strftime("%m%d-%H%M%S")
-    self._cur_dir = _gen_abs_dir(f"./backup/{env}/{sig}", check=False)
+    self._cur_dir = gen_abs_dir(f"./backup/{env}/{sig}", check=False)
     self._cur_dir.mkdir(parents=True, exist_ok=True)
 
   def backup(self, src_path: Path, name: str):
