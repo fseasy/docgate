@@ -1,16 +1,17 @@
 from pathlib import Path
 
-from .data_types import EnvConfT
+from .data_types import EnvConfT, NginxLogConf
 
 
 class NginxConfGen(object):
   INDENT_SPACE = 2
+  NGINX_LOG_NAME = "json_docgate"
 
   def __init__(self, c: EnvConfT):
     self._c = c
 
   def gen(self, out_path: Path):
-    log_content = _DEBUG_LOG_FMT
+    log_content = _ACCESS_LOG_FMT.format(NGINX_LOG_NAME=self.NGINX_LOG_NAME)
     upstream_content = self._gen_upstream()
     server_content = self._gen_server()
     content = "\n\n".join([log_content, upstream_content, server_content])
@@ -61,13 +62,16 @@ class NginxConfGen(object):
       conf_lines.append(server_line)
     else:
       assert not n.standard_reverse_proxy, "server_name is required in standard reverse proxy"
-    if n.access_log_path:
-      log_line = f"access_log {n.access_log_path.absolute()} debug_log;"
+
+    if n.access_log:
+      log_line = f"access_log {n.access_log.setting} {self.NGINX_LOG_NAME};"
       conf_lines.append(log_line)
-      log_path = Path(n.access_log_path)
-      if not log_path.exists():
-        # make parent log dir, or nginx will failed to start
-        log_path.parent.mkdir(parents=True, exist_ok=True)
+      _create_log_dir_if_necessary(n.access_log)
+    if n.error_log:
+      log_line = f"error_log {n.error_log.setting};"
+      conf_lines.append(log_line)
+      _create_log_dir_if_necessary(n.error_log)
+
     conf_lines.extend(
       [
         "",
@@ -131,13 +135,22 @@ class NginxConfGen(object):
     return self._c.basic.VITE_WEBSITE_DOC_ROOT_PATH.strip("/")
 
 
-_DEBUG_LOG_FMT = r"""
-log_format debug_log '$remote_addr - $remote_user [$time_local] '
-'"$request" $status $body_bytes_sent '
-'"$http_referer" "$http_user_agent" '
-'uri=$uri args=$args '
-'document_root="$document_root" '
-'realpath="$realpath_root"';
+_ACCESS_LOG_FMT = r"""
+log_format {NGINX_LOG_NAME} escape=json '{{'
+    '"time":"$time_iso8601",'         
+    '"remote_addr":"$remote_addr",'
+    '"method":"$request_method",'      
+    '"uri":"$request_uri",'            
+    '"status":$status,'
+    '"request_time":$request_time,'   
+    '"upstream_rt":"$upstream_response_time",' 
+    '"upstream_addr":"$upstream_addr",'  
+    '"upstream_status":"$upstream_status",'
+    '"body_bytes":$body_bytes_sent,'
+    '"host":"$host",'
+    '"referer":"$http_referer",'
+    '"ua":"$http_user_agent"'
+'}}';
 """
 
 _AUTH_CHECK = r"""
@@ -365,3 +378,12 @@ def _path_set2location_re(paths: set[str] | None) -> str:
     pattern = suffix
 
   return pattern
+
+
+def _create_log_dir_if_necessary(log_conf: NginxLogConf):
+  if log_conf.type != "file":
+    return
+  log_path = Path(log_conf.setting)
+  if not log_path.exists():
+    # make parent log dir, or nginx will failed to start
+    log_path.parent.mkdir(parents=True, exist_ok=True)
