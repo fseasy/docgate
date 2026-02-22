@@ -65,6 +65,12 @@ def _gen_abs_dir(rel_dir: str, check: bool = True) -> Path:
   return abs_dir
 
 
+class NginxLogConf(BaseModel):
+  type: Literal["file", "syslog"]
+  setting: str
+  """if it's file, it should be the Path string; else it's the corresponding log setting"""
+
+
 class NginxConfT(BaseModel):
   standard_reverse_proxy: bool = False
   """If true, 
@@ -76,7 +82,10 @@ class NginxConfT(BaseModel):
   listen_port: int = 3333
   server_name: str | None = None
   ssl_conf_lines: list[str] | None = None
-  access_log_path: Path | None = Field(default=_gen_abs_dir("../nginx/log/access.log", check=False))
+  access_log: NginxLogConf | None = Field(
+    default=NginxLogConf(type="file", setting=str(_gen_abs_dir("../nginx/log/access.log", check=False)))
+  )
+  error_log: NginxLogConf | None = None
 
 
 def _gen_default_hugo_public_doc_paths() -> set[str]:
