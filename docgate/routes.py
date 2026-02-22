@@ -14,12 +14,12 @@ from supertokens_python.recipe.userroles import UserRoleClaim
 from docgate import config
 from docgate.exceptions import InvalidUserInputException, LogicError
 from docgate.logics import CreateDbUserLogic, PrepaidCodeLogic, UserPermissionLogic
-from docgate.models import PayLog, Tier
+from docgate.models import PayLog
 from docgate.repositories import async_create_prepaid_code, async_get_user, get_db_async_session
 from docgate.supertokens_config import StRole
 from docgate.supertokens_utils import (
-  async_get_user as get_st_user,
   async_create_password_reset_link,
+  async_get_user as get_st_user,
   async_manually_verify_email,
 )
 
@@ -49,10 +49,10 @@ async def get_current_st_user_info(session: SessionContainer = Depends(verify_se
     print(f"get get-supertokens-info result: {time.perf_counter() - t:.2f}")
   except Exception as e:
     err = f"[api]: get-supertokens-info fail: uid={uid}, err={e}, stack={traceback.format_exc()}"
-    logger.error(f"{err}")
+    logger.error(f"{err}", extra={"user_id": uid})
     return StUserResult(error=err, user=None)
   if not user:
-    logger.info(f"[api]: get-supertokens-info get None user, uid={uid}")
+    logger.info(f"[api]: get-supertokens-info get None user, uid={uid}", extra={"user_id": uid})
     return StUserResult(error=None, user=None)
   return StUserResult(error=None, user=user.to_json())
 
@@ -75,7 +75,7 @@ async def get_current_user_db_info(
 
   user = await async_get_user(db_session, user_id=uid, for_update=False)
   if not user:
-    logger.warning(f"[api] get-current-user-db-info: db didn't contain uid: {uid}")
+    logger.warning(f"[api] get-current-user-db-info: db didn't contain uid: {uid}", extra={"user_id": uid})
     st_user = await get_st_user(uid)
     if not st_user:
       raise LogicError(f"Neither db nor supertokens contains the user info: {uid}")
@@ -130,13 +130,17 @@ async def user_purchase_by_code(
     return PurchaseByCodeResp(fail_reason=e.user_msg)
   except Exception as e:
     err = f"[api]: BindPrepaidCode get errors: err={e}, stack={traceback.format_exc()}"
-    logger.error(f"{err}")
+    logger.error(f"{err}", extra={"user_id": uid, "code": code})
     return PurchaseByCodeResp(fail_reason=err)
   # set permission
+  assert db_user
   try:
     await UserPermissionLogic.async_set_doc_reading_permission(session, user_id=uid)
   except Exception as e:
-    logger.error(f"PurchaseByCode: Failed to set doc-reading permission, err={e}")
+    logger.error(
+      f"PurchaseByCode: Failed to set doc-reading permission, err={e}",
+      extra={"user_id": uid, "email": db_user.email, "code": code},
+    )
     return PurchaseByCodeResp(fail_reason=f"已验证，但权限设置错误，请联系{config.CONTENT_AUTHOR_NAME}")
   return PurchaseByCodeResp(fail_reason=None)
 
@@ -252,12 +256,10 @@ async def docgate_auth_check(request: Request, db_session: AsyncSession = Depend
   AUTH_PASS_CODE = 200
   import time
 
-  t = time.perf_counter()
-  print("enter check, elapsed=", time.perf_counter() - t)
-
   async def _logic():
+    t = time.perf_counter()
+
     try:
-      print("ready request get-session, elapsed=", time.perf_counter() - t)
       session = await get_session(
         request,
         session_required=True,
@@ -265,14 +267,19 @@ async def docgate_auth_check(request: Request, db_session: AsyncSession = Depend
       )
       assert session is not None, "`get-session` ok while session result is None"
     except Exception as e:
-      print("request get-session failed, elapsed=", time.perf_counter() - t)
       # For all session issue, we give an unified code so that nginx can redirect to an dedicated api
       # => `refresh-session-or-signin`
-      logger.info(f"AuthCheck: get exception of [{e}], redirect to session handle")
+      logger.info(
+        f"AuthCheck: get exception of [{e}], redirect to session handle",
+        extra={"get_session_time_cost": round(time.perf_counter() - t, 4)},
+      )
       return Response(status_code=REDIRECT_SESSION_HANDLE_CODE)
-    print("request get-session success, elapsed=", time.perf_counter() - t)
+    logger.info(
+      "AuthCheck get-session success",
+      extra={"get_session_time_cost": round(time.perf_counter() - t, 4), "user_id": session.user_id},
+    )
+    # zero io cost for `async_check_doc_reading_permission`
     has_read_permission = await UserPermissionLogic.async_check_doc_reading_permission(session)
-    print("request get-user-id success, elapsed=", time.perf_counter() - t)
     if not has_read_permission:
       return Response(status_code=REDIRECT_PAY_CODE)  # redirect to pay
     return Response(status_code=AUTH_PASS_CODE)

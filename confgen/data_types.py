@@ -107,6 +107,12 @@ def _gen_default_hugo_public_doc_paths() -> set[str]:
   return set(sub_paths)
 
 
+class SyslogReceiverAddress(BaseModel):
+  protocol: Literal["udp"] = "udp"
+  host: str = "127.0.0.1"
+  port: int = 11514
+
+
 class DeployConfT(BaseModel):
   vite_in_server_mode: bool
   backend_server: str = "127.0.0.1:3001"  # fastapi default value
@@ -115,6 +121,7 @@ class DeployConfT(BaseModel):
   hugo_static_dir: str
   hugo_public_doc_paths: set[str] | None = Field(default_factory=_gen_default_hugo_public_doc_paths)
   nginx: NginxConfT = NginxConfT()
+  syslog_receiver_address: SyslogReceiverAddress | None = None
 
 
 class ModuleDirT(BaseModel):

@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -11,6 +11,7 @@ from supertokens_python.framework.fastapi import get_middleware
 from docgate import config
 from docgate.exceptions import ApiBaseException
 from docgate.repositories import lifespan_db
+from docgate.route_stat import RouteStatsMiddleware
 from docgate.routes import admin_router, internal_auth_router, user_router
 from docgate.routes_stripe import stripe_router
 from docgate.supertokens_config import init_supertokens
@@ -75,3 +76,4 @@ app.add_middleware(
   allow_methods=["GET", "PUT", "POST", "DELETE", "OPTIONS", "PATCH"],
   allow_headers=["Content-Type"] + get_all_cors_headers(),
 )
+app.add_middleware(RouteStatsMiddleware)

@@ -43,12 +43,22 @@ else:
 APP_NAME = os.environ["VITE_APP_NAME"]
 APP_LOCALE_NAME = os.environ["VITE_APP_LOCALE_NAME"]
 CONTENT_AUTHOR_NAME = os.environ["VITE_CONTENT_AUTHOR_NAME"]
+_syslog_addr_str = os.environ["SYSLOG_RECEIVER_ADDR"]
 
-LOGGER = build_logger(APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO)
+if _value := _syslog_addr_str.strip():
+  _host, _port = _value.split(":")
+  _addr = (_host, int(_port))
+else:
+  _addr = None
+
+API_DOMAIN = os.environ["VITE_API_DOMAIN"]
+
+LOGGER = build_logger(
+  APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO, syslog_address=_addr, domain=API_DOMAIN
+)
 
 LOGGER.info(f"Loaded client and server environmental vars for ENV={env}")
 
-API_DOMAIN = os.environ["VITE_API_DOMAIN"]
 # only normalize our self one
 API_COMMON_BASE_PATH = normalize_fastapi_base_path(os.environ["VITE_API_COMMON_BASE_PATH"])
 API_AUTH_BASE_PATH = os.environ["VITE_API_AUTH_BASE_PATH"]

@@ -1,14 +1,12 @@
 import argparse
 import asyncio
-from typing import Iterable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from docgate.models import Tier
-from docgate.repositories import async_get_user, async_delete_user, get_db_async_session_cxt, lifespan_db
-from docgate.supertokens_config import StRole, init_supertokens
-from docgate.supertokens_utils import async_delete_user as supertokens_async_delete_user, async_get_user_by_email
 from docgate.config import LOGGER as logger
+from docgate.repositories import async_delete_user, get_db_async_session_cxt, lifespan_db
+from docgate.supertokens_config import init_supertokens
+from docgate.supertokens_utils import async_delete_user as supertokens_async_delete_user, async_get_user_by_email
 
 
 async def get_user_id2email_from_emails(emails: list[str]) -> dict[str, str]:
