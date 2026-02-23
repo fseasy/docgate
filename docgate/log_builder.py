@@ -30,10 +30,12 @@ def build_logger(name: str, level: int, syslog_address: tuple[str, int] | None =
   # syslog
   if syslog_address:
     try:
-      syslog_handler = SysLogHandler(
-        address=syslog_address, facility=SysLogHandler.LOG_USER, socktype=socket.SOCK_DGRAM
+      syslog_handler = NginxAlignedSyslogHandler(
+        address=syslog_address,
+        hostname=_domain2hostname(domain),
+        facility=SysLogHandler.LOG_LOCAL7,
       )
-      json_fmt = JsonSyslogFormatter(domain)
+      json_fmt = JsonSyslogFormatter(_domain2hostname(domain))
       syslog_handler.setFormatter(json_fmt)
       syslog_handler.setLevel(level)
       logger.addHandler(syslog_handler)
@@ -55,27 +57,22 @@ class SingleLineFormatter(logging.Formatter):
 
 
 class JsonSyslogFormatter(logging.Formatter):
-  def __init__(self, domain: str | None = None):
-    super().__init__()
-    if domain:
-      self._host: str | None = urlparse(domain if "://" in domain else "https://" + domain).hostname
-    else:
-      self._host = None
+  def __init__(self, host: str):
+    super().__init__(fmt="%(message)s")
+    self._host = host
 
   def format(self, record: logging.LogRecord) -> str:
 
     iso_time = datetime.fromtimestamp(record.created).astimezone().isoformat(timespec="seconds")
 
     log_data = {
+      "host": self._host,
       "time": iso_time,  # to align the loki receiver
       "level": record.levelname,
       "logger": record.name,
       "file": f"{record.filename}:{record.lineno}",
       "msg": record.getMessage(),
     }
-    if self._host:
-      log_data["host"] = self._host  # to align loki
-
     if record.exc_info:
       log_data["traceback"] = self.formatException(record.exc_info)
 
@@ -84,15 +81,51 @@ class JsonSyslogFormatter(logging.Formatter):
 
     # 4. 安全地转换为 JSON
     msg = json.dumps(log_data, default=str)
-    timestamp = time.strftime("%b %d %H:%M:%S")
-    hostname = socket.gethostname()
-    if self._host:
-      tag = f"{self._host}-api"
-    else:
-      tag = f"{record.name}-api"
-    # follow RFC3164 format (the SysLogHandler already contains the initial priority, so just add time, host and tag)
-    final_msg_with_rfc_fmt = f"{timestamp} {hostname} {tag}: {msg}"
-    return final_msg_with_rfc_fmt
+    return msg
+
+
+class NginxAlignedSyslogHandler(logging.Handler):
+  """
+  严格遵守 RFC 3164，生成与 Nginx 完全一致的 Syslog UDP 报文。
+  解决了 Python SysLogHandler 日期填充错误、格式错位的问题。
+  """
+
+  def __init__(self, address: tuple[str, int], hostname: str, facility=23):
+    super().__init__()
+    self.address = address
+    # 强制替换非法字符，保持与 Nginx (site_docgate) 类似的纯净 TAG
+    self.app_name = hostname.replace(".", "_").replace("-", "_")
+    self.hostname = hostname
+    self.facility = facility  # Nginx 默认多用 Local7 (23)
+    self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+  def emit(self, record):
+    try:
+      # 1. 提取 JSON message
+      msg = self.format(record).lstrip()  # remove the potential leading space to keep the format
+
+      # 2. 计算 PRI (Facility * 8 + Severity)
+      severity_map = {logging.DEBUG: 7, logging.INFO: 6, logging.WARNING: 4, logging.ERROR: 3, logging.CRITICAL: 2}
+      severity = severity_map.get(record.levelno, 6)
+      pri = (self.facility * 8) + severity
+
+      # 3. 严格生成 RFC 3164 时间戳: "Mmm dd hh:mm:ss"
+      # 注意：个位数日期必须用空格补齐，比如 "Feb  3" 不能是 "Feb 03"
+      now = datetime.now()
+      month = now.strftime("%b")
+      day = now.day
+      day_str = f"{day:>2}"  # 右对齐，不足补空格。这一步完美解决解析失败问题！
+      time_str = now.strftime("%H:%M:%S")
+      timestamp = f"{month} {day_str} {time_str}"
+
+      # 4. 严格拼接，完全复刻 Nginx 格式: <PRI>TIMESTAMP HOSTNAME TAG: MSG
+      # 注意 self.app_name 后面紧跟冒号和空格 ": "
+      syslog_msg = f"<{pri}>{timestamp} {self.hostname} {self.app_name}: {msg}\n"
+
+      # 5. 发送 UDP 包
+      self.sock.sendto(syslog_msg.encode("utf-8"), self.address)
+    except Exception:
+      self.handleError(record)
 
 
 def _get_extra_kv(record: logging.LogRecord) -> dict[str, Any]:
@@ -128,3 +161,13 @@ def _get_extra_kv(record: logging.LogRecord) -> dict[str, Any]:
     if key not in RESERVED_ATTRS:
       extra_data[key] = value
   return extra_data
+
+
+def _domain2hostname(domain: str | None) -> str:
+  _DEFAULT_HOST = "docgate_default_app"
+  if not domain:
+    return _DEFAULT_HOST
+  host = urlparse(domain if "://" in domain else "https://" + domain).hostname
+  if not host:
+    host = _DEFAULT_HOST
+  return host

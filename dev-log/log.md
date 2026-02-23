@@ -28,6 +28,19 @@ return final_msg_with_rfc_fmt
 [127.0.0.1]: <14>Feb 23 10:50:31 fsmini localhost-api: {"time": "2026-02-23T10:50:31+08:00", "level": "INFO", "logger": "DajuanEnglish", "file": "route_stat.py:66", "msg": "POST /api/user/purchase-by-code", "host": "localhost", "method": "POST", "path": "/api/user/purchase-by-code", "status": 200, "request_time": 4.62, "ip": "127.0.0.1", "user_id": "guest"}
 ```
 
+### bash 里短路操作，会导致 `set -e` 失效
+
+```bash
+pnpm i && pnpm run build
+```
+
+pnpm i 执行失败（返回非 0 状态码）。
+因为使用了 &&，Shell 认为“如果前面的命令失败，就不执行后面的，这属于正常逻辑控制流”。
+关键点： 在这种逻辑组合中，set -e 通常不会被触发，因为 Shell 认为这个错误已经被“处理”了（通过跳过后续命令）。
+整个 pnpm i && pnpm run build 这一行语句最终返回的是 pnpm i 的失败状态，但如果这一行是脚本的最后一行，或者后面没有检查 $?，脚本就会直接退出而不报错。
+
+所以分开 2 行写就没有问题！
+
 ## 26.02.20
 
 ### SSL 证书
