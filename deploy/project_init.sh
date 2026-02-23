@@ -1,6 +1,7 @@
 #!/bin/bash
 # run this file in the current dir.
 # or use bash to run it.
+# Don't use `&&` if possible, it will make the `set -e` work not as expected
 
 set -e
 set -x
@@ -31,7 +32,9 @@ ln -sn "$CONF_SYNC_GIT_REPO_LOCAL_DIR/${ENV}.py" "$PROD_CONF_PROJECT_INSIDE_DIR/
 cd $PROJECT_ROOT_LOCAL_DIR
 echo "now switch to release branch"
 # 1. switch to release branch
-git fetch origin --prune && git checkout release && git reset --hard origin/release
+git fetch origin --prune
+git checkout release
+git reset --hard origin/release
 # 2. create venv
 echo "create venv"
 uv venv .venv --allow-existing --python 3.12
@@ -48,7 +51,8 @@ ln -sn "$PROJECT_ROOT_LOCAL_DIR/nginx/${ENV}.conf" "$NGINX_SYSTEM_CONF_DIR/docga
 # 5. build vite
 echo "Pnpm install & Vite build"
 cd  "$PROJECT_ROOT_LOCAL_DIR/frontend"
-pnpm i && pnpm run build
+pnpm i
+pnpm run build
 
 # 6. install gunicorn services for fastapi
 
