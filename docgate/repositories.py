@@ -9,7 +9,6 @@ from .models import (
   AsyncSessionLocal,
   PayLog,
   PayLogUnit,
-  PayMethod,
   PrepaidCode,
   Tier,
   User,

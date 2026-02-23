@@ -1,28 +1,22 @@
-import traceback
-from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated
 
 import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 from supertokens_python.recipe.session import SessionContainer
-from supertokens_python.recipe.session.asyncio import get_session, refresh_session
 from supertokens_python.recipe.session.framework.fastapi import verify_session
-from supertokens_python.recipe.userroles import UserRoleClaim
 
 from docgate import config
 from docgate.asserts import gen_purchase_confirmation_email_html_body
-from docgate.exceptions import InvalidUserInputException, LogicError
+from docgate.exceptions import LogicError
 from docgate.logics import PaywallLogic, UserPermissionLogic
-from docgate.models import PayLog, Tier
+from docgate.models import Tier
 from docgate.repositories import (
   async_get_user,
   get_db_async_session,
   get_db_async_session_cxt,
 )
-from docgate.supertokens_config import StRole
 from docgate.supertokens_utils import async_send_email
 
 stripe_router = APIRouter(prefix="/stripe", tags=["UserStripe"])
@@ -141,7 +135,8 @@ async def fulfill_checkout(session_id: str):
       # ! we'll do it in the return part.
       logger.info(
         f"Stripe: set user paid success: user=[{user_id}, {email}]. "
-        "NOTE: user permission haven't been synced to supertokens session"
+        "NOTE: user permission haven't been synced to supertokens session",
+        extra={"user_id": user_id, "email": email},
       )
     else:
       await PaywallLogic.set_db_user_pay_failed(db_session=db_session, user_id=user_id, email=email)
@@ -173,7 +168,10 @@ async def after_pay(
   if not db_user:
     return AfterPayResp(fail_reason=f"User {user_id}(tgt-email=[{req.target_email}]) doesn't exist in db")
   if db_user.tier == Tier.FREE:
-    logger.warning(f"AfterPay: get a free user: id=[{user_id}], tgt-email=[{req.target_email}]")
+    logger.warning(
+      f"AfterPay: get a free user: id=[{user_id}], tgt-email=[{req.target_email}]",
+      extra={"user_id": user_id, "email": req.target_email},
+    )
     return AfterPayResp(fail_reason=f"User {user_id}(tgt-email=[{req.target_email}]) hadn't paid")
   # check done.
   # - set permission
