@@ -23,7 +23,7 @@ PROD_CONF_PROJECT_INSIDE_DIR="$PROJECT_ROOT_LOCAL_DIR/confgen/uni-conf/$ENV"
 
 # prepare conf from another private repo: 
 # 1. enter the private repo to fetch the latest conf 2. link it to the project inside
-echo "pull the config file ${ENV}.py from ${PROD_CONF_REPO_DIR} git repo"
+echo "pull the config file ${ENV}.py from ${CONF_SYNC_GIT_REPO_LOCAL_DIR} git repo"
 cd $CONF_SYNC_GIT_REPO_LOCAL_DIR
 git pull
 mkdir -p $PROD_CONF_PROJECT_INSIDE_DIR
