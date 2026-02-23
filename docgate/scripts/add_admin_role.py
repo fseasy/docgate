@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from docgate.models import Tier
 from docgate.repositories import async_get_user, get_db_async_session_cxt, lifespan_db
 from docgate.supertokens_config import StRole, init_supertokens
-from docgate.supertokens_utils import async_add_role2user, async_init_roles, async_get_user_by_email
+from docgate.supertokens_utils import async_add_role2user, async_get_user_by_email, async_init_roles
 
 
 async def add_admin_for_emails(emails: Iterable[str], db_session: AsyncSession) -> None:

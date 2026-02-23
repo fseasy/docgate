@@ -6,20 +6,20 @@ from enum import StrEnum
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from supertokens_python.recipe.emailpassword.types import FormField
-from supertokens_python.types import User as StUser
 from supertokens_python.recipe.session import SessionContainer
-from supertokens_python.recipe.userroles import UserRoleClaim, PermissionClaim
+from supertokens_python.recipe.userroles import PermissionClaim, UserRoleClaim
+from supertokens_python.types import User as StUser
 
-from docgate.supertokens_utils import async_get_user as get_st_user, async_add_role2user
 from docgate.supertokens_config import StRole
+from docgate.supertokens_utils import async_add_role2user
 
 from . import config as config
-from .exceptions import InvalidUserInputException, LogicError, NotExistInDBException
-from .models import PrepaidCode as PrepaidCodeModel, PayLog, PayLogUnit, PayMethod, Tier, User
+from .exceptions import InvalidUserInputException
+from .models import PayLog, PayLogUnit, PayMethod, PrepaidCode as PrepaidCodeModel, Tier, User
 from .repositories import (
   async_create_free_user,
-  async_create_paid_user_with_redeeming_prepaid_code,
   async_create_paid_user_with_paywall,
+  async_create_paid_user_with_redeeming_prepaid_code,
   async_get_prepaid_code,
   async_get_user,
   get_db_async_session_cxt,
@@ -99,7 +99,9 @@ class PaywallLogic(object):
     """Exception: any possible"""
     db_user = await async_get_user(db_session, user_id=user_id, for_update=True)
     if not db_user:
-      logger.warning("Paywall: set paid user while user not exist in our db. create new!")
+      logger.warning(
+        "Paywall: set paid user while user not exist in our db. create new!", extra={"user_id": user_id, "email": email}
+      )
       await async_create_paid_user_with_paywall(db_session, user_id=user_id, email=email)
       return
     user_attr = PaywallLogic.get_paid_user_attr()
@@ -116,7 +118,10 @@ class PaywallLogic(object):
     LOG_STR = "自助购买未完成"
     db_user = await async_get_user(db_session, user_id=user_id, for_update=True)
     if not db_user:
-      logger.warning("Paywall: set user pay failed while user not exist in our db. create new!")
+      logger.warning(
+        "Paywall: set user pay failed while user not exist in our db. create new!",
+        extra={"user_id": user_id, "email": email},
+      )
       pay_log_unit = PayLog.create_new_unit(log=LOG_STR, method=PayMethod.PAYWALL, is_success=False)
       await async_create_free_user(db_session, user_id=user_id, email=email, pay_log_unit=pay_log_unit)
       return
@@ -156,7 +161,7 @@ class UserPermissionLogic(object):
     """Exception: any possible"""
     add_ok, add_tips = await async_add_role2user(user_id, role=StRole.USER_GOLD_TIER)
     if not add_ok:
-      logger.warning(f"SetDocReading permission failed, err={add_tips}")
+      logger.warning(f"SetDocReading permission failed, err={add_tips}", extra={"user_id": user_id})
     await st_session.fetch_and_set_claim(UserRoleClaim)
     await st_session.fetch_and_set_claim(PermissionClaim)
 
@@ -211,19 +216,22 @@ class CreateDbUserLogic(object):
       pay_log_unit = PayLog.create_new_unit(method=PayMethod.PREPAID_CODE, log="预付款码不存在", is_success=False)
       db_user = await async_create_free_user(db_session, user_id=user_id, email=user_email, pay_log_unit=pay_log_unit)
       pay_log_info = f"RedeemCode Fail: code=[{code_str}] wasn't exist in DB"
-      logger.warning(f"{pay_log_info}. Free user [{db_user}] created.")
+      logger.warning(f"{pay_log_info}. Free user [{db_user}] created.", extra={"user_id": user_id, "email": user_email})
       raise InvalidUserInputException(pay_log_info, user_msg=pay_log_unit.log)
     is_redeemable, reason = code_data.redeemable_with_reason
     if not is_redeemable:
       pay_log_unit = PayLog.create_new_unit(method=PayMethod.PREPAID_CODE, log="预付款码失效", is_success=False)
       db_user = await async_create_free_user(db_session, user_id=user_id, email=user_email, pay_log_unit=pay_log_unit)
       pay_log_info = f"RedeemCode Fail: unredeemable code=[{code_str}], reason={reason}"
-      logger.warning(f"{pay_log_info}. Free user [{db_user}] created.")
+      logger.warning(f"{pay_log_info}. Free user [{db_user}] created.", extra={"user_id": user_id, "email": user_email})
       raise InvalidUserInputException(pay_log_info, user_msg=pay_log_unit.log)
     db_user = await async_create_paid_user_with_redeeming_prepaid_code(
       db_session, user_id=user_id, email=user_email, prepaid_code=code_data
     )
-    logger.info(f"RedeemCode Success: redeem code=[{code_str}]. Paid user [{db_user}] created.")
+    logger.info(
+      f"RedeemCode Success: redeem code=[{code_str}]. Paid user [{db_user}] created.",
+      extra={"user_id": user_id, "email": user_email},
+    )
     return CreateUserStatus.CREATE_AND_REDEEM_SUCCESS
 
   @staticmethod
@@ -246,20 +254,25 @@ class CreateDbUserLogic(object):
       if prepaid_code_field is None:
         pay_log_unit = PayLog.create_new_unit(method=None, log="无支付", is_success=False)
         db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email, pay_log_unit=pay_log_unit)
-        logger.warning(f"Code: Form field not found! Free user [{db_user}] created.")
+        logger.warning(
+          f"Code: Form field not found! Free user [{db_user}] created.", extra={"user_id": user.id, "email": user_email}
+        )
         return CreateUserStatus.REDEEM_FAILED_ON_NO_PREPAID_CODE_IN_FORM_INPUT
       prepaid_code_str = prepaid_code_field.value.strip()
       if not prepaid_code_str:
         pay_log_unit = PayLog.create_new_unit(method=None, log="无支付", is_success=False)
         db_user = await async_create_free_user(db_session, user_id=user.id, email=user_email, pay_log_unit=pay_log_unit)
-        logger.warning(f"Code: From field value is empty! Free user [{db_user}] created.")
+        logger.warning(
+          f"Code: From field value is empty! Free user [{db_user}] created.",
+          extra={"user_id": user.id, "email": user_email},
+        )
         return CreateUserStatus.REDEEM_FAILED_ON_NO_PREPAID_CODE_IN_FORM_INPUT
       return await CreateDbUserLogic.async_create_with_redeeming(
         db_session=db_session, user_id=user.id, user_email=user_email, code_str=prepaid_code_str
       )
 
     if not user.emails:
-      logger.error(f"SuperTokens user doesn't contain emails: {user.to_json()}")
+      logger.error(f"SuperTokens user doesn't contain emails: {user.to_json()}", extra={"user_id": user.id})
       return CreateUserStatus.CREATE_USER_FAILED_ON_SUPERTOKENS_INVALID_USER_DATA
     try:
       async with get_db_async_session_cxt() as db_session:
@@ -269,6 +282,7 @@ class CreateDbUserLogic(object):
     except Exception as e:
       logger.error(
         f"Failed to create user with unexpected internal error, user={user.to_json()}. "
-        f"err={e}, stack={traceback.format_exc()}"
+        f"err={e}, stack={traceback.format_exc()}",
+        extra={"user_id": user.id, "email": user.emails[0]},
       )
       return CreateUserStatus.INTERNAL_UNEXPECTED_ERROR

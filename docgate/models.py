@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import IntEnum
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, NullPool, String, Text, TypeDecorator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship

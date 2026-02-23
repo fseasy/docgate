@@ -49,11 +49,18 @@ def _gen_backend_conf(env: EnvT, c: EnvConfT):
   _write_dict2env_file(_get_vite_backend_shared_data(c), shared_conf_path)
 
   server_conf_path = backend_dir / f".env.server.{suffix}"
+  syslog_addr = c.deploy.syslog_receiver_address
+  if syslog_addr:
+    _syslog_receiver_addr_env_value = f"{syslog_addr.host}:{syslog_addr.port}"
+  else:
+    _syslog_receiver_addr_env_value = ""
   server_data = {
     **_model2dict(c.supertokens, None),
     **_model2dict(c.supabase, None),
     **_model2dict(c.smtp, None),
     **_model2dict(c.stripe, ["STRIPE_API_KEY", "STRIPE_ENDPOINT_SECRET", "STRIPE_PRICE_ID"]),
+    # extra
+    "SYSLOG_RECEIVER_ADDR": _syslog_receiver_addr_env_value,
   }
   g_backup.backup(server_conf_path, "backend_server.env")
   _write_dict2env_file(server_data, server_conf_path)

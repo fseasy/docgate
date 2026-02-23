@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from docgate.exceptions import InvalidUserInputException
 from docgate.logics import CreateDbUserLogic, CreateUserStatus, PrepaidCodeLogic
-from docgate.models import PrepaidCode as PrepaidCodeModel, PayLogUnit, Tier, User
+from docgate.models import PayLogUnit, PrepaidCode as PrepaidCodeModel, Tier, User
 
 
 @pytest.mark.asyncio
