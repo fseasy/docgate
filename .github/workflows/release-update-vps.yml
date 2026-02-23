@@ -19,5 +19,4 @@ jobs:
           port: ${{ secrets.PORT }}
           script: |
             cd ${{ secrets.DOCGATE_DEPLOY_DIR }}
-            ./env_init.sh
             ./update.sh

@@ -1,9 +1,8 @@
 #!/bin/bash
 # run this file in the current dir.
 # or use bash to run it.
-# Don't use `&&` if possible, it will make the `set -e` work not as expected
-
-set -e
+set -Eeuo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"; exit 1' ERR
 set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
