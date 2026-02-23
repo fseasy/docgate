@@ -1,3 +1,33 @@
+## 26.02.23
+
+### Python syslog 格式不是标准的 RFC3164
+
+```<14>{"time": "2026-02-23T10:37:24+08:00", "level": "INFO", "logger": "DajuanEnglish", "file": "route_stat.py:66", "msg": "POST /api/user/purchase-by-code", "host": "localhost", "method": "POST", "path": "/api/user/purchase-by-code", "status": 200, "request_time": 2.91, "ip": "127.0.0.1", "user_id": "guest"}
+```
+
+这是 python 默认的 SysLogHandler 发的格式，这个与 nginx 的不统一。
+
+解决方法是设置前缀来对齐 RFC3164:
+
+```
+msg = json.dumps(log_data, default=str)
+timestamp = time.strftime("%b %d %H:%M:%S")
+hostname = socket.gethostname()
+if self._host:
+  tag = f"{self._host}-api"
+else:
+  tag = f"{record.name}-api"
+# follow RFC3164 format (the SysLogHandler already contains the initial priority, so just add time, host and tag)
+final_msg_with_rfc_fmt = f"{timestamp} {hostname} {tag}: {msg}"
+return final_msg_with_rfc_fmt
+```
+
+转换结果如下：
+
+```
+[127.0.0.1]: <14>Feb 23 10:50:31 fsmini localhost-api: {"time": "2026-02-23T10:50:31+08:00", "level": "INFO", "logger": "DajuanEnglish", "file": "route_stat.py:66", "msg": "POST /api/user/purchase-by-code", "host": "localhost", "method": "POST", "path": "/api/user/purchase-by-code", "status": 200, "request_time": 4.62, "ip": "127.0.0.1", "user_id": "guest"}
+```
+
 ## 26.02.20
 
 ### SSL 证书
