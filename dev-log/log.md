@@ -1,6 +1,82 @@
 ## 26.02.23
 
-### Python syslog 格式不是标准的 RFC3164
+### Grafana Alloy 对 RFC3164 syslog 的 mapping 规则； 用 loki.echo 来 debug 
+
+要把自带解析的 __syslog_message_app_name map 成新的 label，用下面的方法：
+
+```
+loki.source.syslog "nginx_syslog" {
+    listener {
+        address  = "127.0.0.1:11514"
+        protocol = "udp"
+        syslog_format = "rfc3164"
+        use_incoming_timestamp = false
+        labels = {
+            job = "nginx",
+        }
+    }
+    // 注意，必须在这里用 relabel, 而不是去 forward 到这一步，因为这些 `__` 开头的系统标签，到下一部时自动清空！
+    relabel_rules = loki.relabel.nginx_syslog_map_tags.rules
+    forward_to = [loki.process.nginx_parse.receiver]
+}
+
+loki.relabel "nginx_syslog_map_tags" {
+    rule {
+        source_labels = ["__syslog_message_app_name"] // Alloy 自动解析出来的 Tag, 把它变成 Grafana 里的 project
+        target_label  = "project"                     
+    }
+    
+    rule {
+        source_labels = ["__syslog_message_severity"] // Alloy 自动解析出来的级别, 把它变成 Grafana 里的 level (info/error)
+        target_label  = "level"                       
+    }
+
+    forward_to = [] // 注意 2： 这里就算留空，也必须写，不然报错！
+}
+
+loki.process "nginx_parse" {
+    // 1. 解析 JSON
+    stage.json {
+        expressions = {
+            uri          = "uri",
+            status       = "status",
+            request_time = "request_time",
+            host         = "host",
+            time = "time",
+        }
+    }
+
+    // 2. 提升 host 为标签
+    stage.labels {
+        values = {
+            host = "host",
+        }
+    }
+    // 3. fix time issue (use the nginx output time, instead of syslog buggy time, 
+    // which cause `has timestamp too new` error)
+    stage.timestamp {
+        source = "time"
+        format = "RFC3339"  // 正确解析 2026-02-22T11:25:34+08:00
+    }
+
+    // forward_to = [loki.write.grafana_cloud_loki.receiver]
+    forward_to = [loki.echo.debug_stdout.receiver]
+}
+
+loki.echo "debug_stdout" {}
+```
+
+这是被各个 LLM 坑，最后看文档 `https://grafana.com/docs/alloy/latest/reference/components/loki/loki.source.syslog/` 再让 gemini 基于文档做说明的结果。终于好使了啊…
+
+生效的结果是这样的：
+
+```
+Feb 23 23:28:28 fseasy.top alloy[277527]: ts=2026-02-23T15:28:28.317950611Z level=info component_path=/ component_id=loki.echo.debug_stdout receiver=loki.echo.debug_stdout entry="{\"time\":\"2026-02-23T23:28:28+08:00\",\"remote_addr\":\"2408:8266:3:1d6a:4595:8b94:46eb:eaac\",\"method\":\"GET\",\"uri\":\"/fonts/andika-ipa-subset.woff2\",\"status\":200,\"request_time\":0.079,\"upstream_rt\":\"\",\"upstream_addr\":\"\",\"upstream_status\":\"\",\"body_bytes\":36352,\"host\":\"dajuan.fseasy.top\",\"referer\":\"https://dajuan.fseasy.top/book.min.3c3b4c6cb8153cb780bbfb3d3d697b5c26f158453cd521ec91f6ee2b2af56aaa.css\",\"ua\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36\"}" entry_timestamp=2026-02-23T23:28:28.000+08:00 labels="{host=\"dajuan.fseasy.top\", job=\"nginx\", level=\"informational\", project=\"site_docgate\"}" structured_metadata={}
+```
+
+labels 是有之前设置的值的！
+
+### Python syslog 格式不是标准的 RFC3164 => 有坑！不要用 SyslogHandler 来手工搞 RFC3164, 自己写个 handler 来 emit socket!
 
 ```<14>{"time": "2026-02-23T10:37:24+08:00", "level": "INFO", "logger": "DajuanEnglish", "file": "route_stat.py:66", "msg": "POST /api/user/purchase-by-code", "host": "localhost", "method": "POST", "path": "/api/user/purchase-by-code", "status": 200, "request_time": 2.91, "ip": "127.0.0.1", "user_id": "guest"}
 ```
@@ -28,7 +104,15 @@ return final_msg_with_rfc_fmt
 [127.0.0.1]: <14>Feb 23 10:50:31 fsmini localhost-api: {"time": "2026-02-23T10:50:31+08:00", "level": "INFO", "logger": "DajuanEnglish", "file": "route_stat.py:66", "msg": "POST /api/user/purchase-by-code", "host": "localhost", "method": "POST", "path": "/api/user/purchase-by-code", "status": 200, "request_time": 4.62, "ip": "127.0.0.1", "user_id": "guest"}
 ```
 
-### bash 里短路操作，会导致 `set -e` 失效
+
+=> 手写对齐了，但是结果还是不行—看 tcpdump ，会发现结尾有一个奇怪的 `.`, ChatGPT 说是这个是包被截断的标识。
+反正 alloy 就是收不到这个包。
+
+最后的最后，还是不用这个 python 的 SyslogHandler, 让 Gemini 自己写了个—其实也很简单，逻辑都没变，只是自己调用 socket 发送 udp 而已。结果就是—确实好使。
+
+虽然最后还是不知道具体理由，但是目的达到。
+
+### bash 里短路操作，会导致 `set -e` 失效 => 事实证明千问是在乱说！ 本质是因为我用 login-shell 来跑了这个玩意。
 
 ```bash
 pnpm i && pnpm run build
@@ -40,6 +124,20 @@ pnpm i 执行失败（返回非 0 状态码）。
 整个 pnpm i && pnpm run build 这一行语句最终返回的是 pnpm i 的失败状态，但如果这一行是脚本的最后一行，或者后面没有检查 $?，脚本就会直接退出而不报错。
 
 所以分开 2 行写就没有问题！
+
+----
+
+上面都是垃圾信息。真正原因是：我用 login-shell 来跑了这个脚本。
+
+如何修正：
+
+1. `set -e` 改为 
+   ```bash
+   set -Eeuo pipefail
+   trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"; exit 1' ERR
+   ```
+2. 别用 bash login shell, 明确下 PATH，更精确，避坑！
+
 
 ## 26.02.20
 

@@ -144,6 +144,8 @@ log_format {NGINX_LOG_NAME} escape=json '{{'
     '"status":$status,'
     '"request_time":$request_time,'   
     '"upstream_rt":"$upstream_response_time",' 
+    '"auth_rt":"$auth_request_time",' 
+    '"auth_status":"$auth_status",' 
     '"upstream_addr":"$upstream_addr",'  
     '"upstream_status":"$upstream_status",'
     '"body_bytes":$body_bytes_sent,'
@@ -271,8 +273,9 @@ location ^~ /{DOC_PREFIX}/ {{
     root {HUGO_STATIC_DIR};
     # default strategy: go auth
     auth_request /_docgate/auth_check;
+    auth_request_set $auth_request_time $upstream_response_time;
     auth_request_set $auth_status $upstream_status;
-
+    
     error_page 401 = @session_handle_redirect;
     error_page 403 = @purchase_redirect;
     # avoid cache for index.html (because customer will access by /docs/xxx/), so rule is on this level.
