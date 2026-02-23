@@ -94,7 +94,7 @@ class NginxAlignedSyslogHandler(logging.Handler):
     super().__init__()
     self.address = address
     # 强制替换非法字符，保持与 Nginx (site_docgate) 类似的纯净 TAG
-    self.app_name = hostname.replace(".", "_").replace("-", "_")
+    self.app_name = f"{hostname.replace('.', '_').replace('-', '_')}_fastapi"
     self.hostname = hostname
     self.facility = facility  # Nginx 默认多用 Local7 (23)
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
