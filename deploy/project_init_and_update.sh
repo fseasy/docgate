@@ -1,6 +1,7 @@
 #!/bin/bash
-# run this file in the current dir.
-# or use bash to run it.
+# This script can be run in once the `env_init.sh` has been called and the dependency dir is prepared already
+# it's also intended for update project (pull latest & re-build & reload)
+
 set -Eeuo pipefail
 trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"; exit 1' ERR
 set -x
@@ -72,4 +73,10 @@ else
   sudo systemctl enable $SYSTEMD_SERVICE_NAME
   sudo systemctl restart $SYSTEMD_SERVICE_NAME
 fi
-echo "done"
+
+echo "Test Nginx config & Restart Nginx"
+# restart nginx
+nginx -t
+systemctl restart nginx
+
+echo "All done"

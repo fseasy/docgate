@@ -19,4 +19,6 @@ jobs:
           port: ${{ secrets.PORT }}
           script: |
             cd ${{ secrets.DOCGATE_DEPLOY_DIR }}
-            ./update.sh
+            # update the repo first
+            git fetch origin --prune && git checkout release && git reset --hard origin/release
+            ./project_init_and_update.sh
