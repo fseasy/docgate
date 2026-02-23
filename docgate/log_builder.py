@@ -1,6 +1,8 @@
 import json
 import logging
+import socket
 import sys
+import time
 from datetime import datetime
 from logging.handlers import SysLogHandler
 
@@ -28,9 +30,9 @@ def build_logger(name: str, level: int, syslog_address: tuple[str, int] | None =
   # syslog
   if syslog_address:
     try:
-      syslog_handler = SysLogHandler(address=syslog_address)
-      syslog_handler.ident = f"{name}-api: "  # 必须以冒号空格结尾，触发 Alloy 的 tag 识别
-
+      syslog_handler = SysLogHandler(
+        address=syslog_address, facility=SysLogHandler.LOG_USER, socktype=socket.SOCK_DGRAM
+      )
       json_fmt = JsonSyslogFormatter(domain)
       syslog_handler.setFormatter(json_fmt)
       syslog_handler.setLevel(level)
@@ -60,7 +62,7 @@ class JsonSyslogFormatter(logging.Formatter):
     else:
       self._host = None
 
-  def format(self, record: logging.LogRecord):
+  def format(self, record: logging.LogRecord) -> str:
 
     iso_time = datetime.fromtimestamp(record.created).astimezone().isoformat(timespec="seconds")
 
@@ -81,8 +83,16 @@ class JsonSyslogFormatter(logging.Formatter):
     log_data.update(_get_extra_kv(record))
 
     # 4. 安全地转换为 JSON
-    # default=str 非常关键！如果你传了 datetime 或者 UUID 对象，它能防止 json.dumps 崩溃
-    return json.dumps(log_data, default=str)
+    msg = json.dumps(log_data, default=str)
+    timestamp = time.strftime("%b %d %H:%M:%S")
+    hostname = socket.gethostname()
+    if self._host:
+      tag = f"{self._host}-api"
+    else:
+      tag = f"{record.name}-api"
+    # follow RFC3164 format (the SysLogHandler already contains the initial priority, so just add time, host and tag)
+    final_msg_with_rfc_fmt = f"{timestamp} {hostname} {tag}: {msg}"
+    return final_msg_with_rfc_fmt
 
 
 def _get_extra_kv(record: logging.LogRecord) -> dict[str, Any]:
