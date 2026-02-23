@@ -19,4 +19,4 @@ jobs:
           port: ${{ secrets.PORT }}
           script: |
             cd ${{ secrets.DOCGATE_DEPLOY_DIR }}
-            /usr/bin/bash -l ./update.sh
+            ./update.sh

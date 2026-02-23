@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+set -Eeuo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"; exit 1' ERR
 set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,7 +21,7 @@ PROD_CONF_PROJECT_INSIDE_DIR="$PROJECT_ROOT_DIR/confgen/uni-conf/$ENV_NAME"
 # the update conf/dependency/vite logic are the same as project-init
 # 1. pull the latest code 2. gen conf 3. vite build 4. restart systemd gunicorn fastapi
 # the gunicorn service has already been restarted!
-$SCRIPT_DIR/project_init.sh
+$SCRIPT_DIR/project_init.sh || exit 1
 
 # restart nginx
 nginx -t
