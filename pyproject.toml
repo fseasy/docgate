@@ -5,16 +5,17 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "aiosqlite>=0.22.1",
-    "asyncpg>=0.31.0",
-    "fastapi[standard-no-fastapi-cloud-cli]>=0.128.0",
-    "gunicorn>=25.1.0",
-    "python-dotenv>=1.2.1",
-    "sniffio>=1.3.1",
-    "sqlalchemy[asyncio]>=2.0.45",
-    "stripe>=14.3.0",
-    "supertokens-python>=0.30.2",
-    "yarl>=1.22.0",
+  "aiosqlite>=0.22.1",
+  "asyncpg>=0.31.0",
+  "fastapi[standard-no-fastapi-cloud-cli]>=0.128.0",
+  "gunicorn>=25.1.0",
+  "pyjwt>=2.10.1",
+  "python-dotenv>=1.2.1",
+  "sniffio>=1.3.1",
+  "sqlalchemy[asyncio]>=2.0.45",
+  "stripe>=14.3.0",
+  "supertokens-python>=0.30.2",
+  "yarl>=1.22.0",
 ]
 
 [tool.ruff]
@@ -27,8 +28,8 @@ select = ["E", "F", "I"]
 
 [tool.ruff.lint.isort]
 # 这里可以像 isort 一样自定义配置
-force-single-line = false   # 是否强制单行导入
-combine-as-imports = true   # 是否合并 import as
+force-single-line = false # 是否强制单行导入
+combine-as-imports = true # 是否合并 import as
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple/"
@@ -40,11 +41,11 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "alembic>=1.18.3",
-    "psycopg2-binary>=2.9.11",
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
-    "ruff>=0.14.13",
+  "alembic>=1.18.3",
+  "psycopg2-binary>=2.9.11",
+  "pytest>=9.0.2",
+  "pytest-asyncio>=1.3.0",
+  "ruff>=0.14.13",
 ]
 
 [tool.hatch.build.targets.wheel]

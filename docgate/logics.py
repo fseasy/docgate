@@ -15,6 +15,7 @@ from docgate.supertokens_utils import async_add_role2user
 
 from . import config as config
 from .exceptions import InvalidUserInputException
+from .jwt_verification import AuthJWTPayload
 from .models import PayLog, PayLogUnit, PayMethod, PrepaidCode as PrepaidCodeModel, Tier, User
 from .repositories import (
   async_create_free_user,
@@ -155,6 +156,27 @@ class UserPermissionLogic(object):
     if roles is not None and (set(roles) & DOC_READING_ROLES):
       return True
     return False
+
+  @staticmethod
+  async def async_check_doc_reading_permission_jwt(payload: AuthJWTPayload) -> bool:
+    """Check if has reading role
+    Exception: None
+    """
+    DOC_READING_ROLES = set([StRole.USER_GOLD_TIER, StRole.ADMIN])
+    roles = payload.roles.value if payload.roles else None
+    if roles is not None and (set(roles) & DOC_READING_ROLES):
+      return True
+    return False
+
+  @staticmethod
+  async def async_check_email_verified_jwt(payload: AuthJWTPayload) -> bool:
+    """Check if email verified
+    Exception: None
+    """
+    if not config.EMAIL_VERIFICATION_REQUIRED:
+      return True
+    is_email_verified = payload.email_verified.value if payload.email_verified else False
+    return is_email_verified
 
   @staticmethod
   async def async_set_doc_reading_permission(st_session: SessionContainer, user_id: str) -> None:

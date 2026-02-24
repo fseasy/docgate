@@ -1,5 +1,34 @@
 ## 26.02.23
 
+### Nginx 如何记录 auth request 时间？
+
+1. 在 auth_request 后面使用 auth_request_set 设置值
+2. 在 log 里打印值，（不存在时对应就是空串）
+
+```python
+# auth-request part
+location ^~ /{DOC_PREFIX}/ {{
+    root {HUGO_STATIC_DIR};
+    # default strategy: go auth
+    auth_request /_docgate/auth_check;
+    auth_request_set $auth_request_time $upstream_response_time;
+    auth_request_set $auth_status $upstream_status;
+}}
+
+# log
+
+log_format {NGINX_LOG_NAME} escape=json '{{'
+    '"time":"$time_iso8601",'         
+    '"remote_addr":"$remote_addr",'
+    '"method":"$request_method",'      
+    '"uri":"$request_uri",'            
+    '"status":$status,'
+    '"request_time":$request_time,'   
+    '"upstream_rt":"$upstream_response_time",' 
+    '"auth_rt":"$auth_request_time",' 
+    '"auth_status":"$auth_status",' 
+```
+
 ### Grafana Alloy 对 RFC3164 syslog 的 mapping 规则； 用 loki.echo 来 debug 
 
 要把自带解析的 __syslog_message_app_name map 成新的 label，用下面的方法：

@@ -37,7 +37,7 @@ def init_supertokens():
 
   recipe_list = [
     emailverification.init(
-      mode="REQUIRED",
+      mode="REQUIRED" if base_conf.EMAIL_VERIFICATION_REQUIRED else "OPTIONAL",
       email_delivery=EmailDeliveryConfig(service=emailverification.SMTPService(smtp_settings=_get_smtp_settings())),
     ),
     session.init(
