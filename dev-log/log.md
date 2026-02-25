@@ -38,7 +38,33 @@ proxy_cache_path /tmp/nginx_auth_cache # a general path for linux & mac
   # avoid possible header from backend that disable cache (api may use set those headers)
   proxy_ignore_headers Cache-Control Expires Set-Cookie;
 
+  # NOTE: must enable proxy-buffering. Or the proxy_cache_status will always be MISS
+  proxy_buffering on;
+
   # --- 核心优化结束 ---
+  }
+```
+
+注意：一定要设置 `proxy_buffering on;` 否则这个 cache 无效，结果总是 MISS. DEBUG 了半天，还是 Gemini 提醒了这点。
+
+> Nginx 要缓存一个请求，必须先把完整的响应内容吸收到本地的临时文件（proxy_temp_path），然后再移动到缓存目录（proxy_cache_path）。
+> 关闭 Buffer 的后果：因为你写了 proxy_buffering off;，Nginx 变成了一根单纯的“透传水管”。后端吐出哪怕一个字节，Nginx 连看都不看直接塞给客户端，它完全放弃了把响应收集起来存入本地文件的操作。
+> 最终结果：既然连“写临时文件”这个动作都被彻底阉割了，proxy_cache 也就成了无米之炊，它永远等不到一份完整的响应来生成缓存，所以不管你请求多少次，永远都是 MISS。
+
+如何 debug:
+
+在调用 auth_request 的 location 里，设置 header 显示 status ，然后在前端看 response header:
+
+```
+  location ^~ /docs/ {
+      # default strategy: go auth
+      auth_request /_docgate/auth_check;
+      auth_request_set $auth_request_time $upstream_response_time;
+      auth_request_set $auth_status $upstream_status;
+      # debug header
+      add_header X-Auth-Cache-Status $upstream_cache_status always; # MISS/HIT/EXPIRED/...
+      add_header X-Debug-Cookie $cookie_sAccessToken always; # show key
+      ...
   }
 ```
 
