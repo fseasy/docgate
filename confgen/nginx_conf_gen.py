@@ -155,6 +155,15 @@ log_format {NGINX_LOG_NAME} escape=json '{{'
 '}}';
 """
 
+_AUTH_CACHE_ZONE = r"""
+proxy_cache_path /tmp/nginx_auth_cache # a general path for linux & mac
+  levels=1:2
+  keys_zone=auth_cache:1m # memory cache for key, 1MB memory key - enough for 1K+ users
+  max_size=10m # disk cache for response, our auth only return code, so it's enough
+  inactive=5m  # clean after 5min
+  use_temp_path=off; # temporary files will be put directly in the cache directory instead of follow proxy_temp_path
+"""
+
 _AUTH_CHECK = r"""
 # **************************
 # ! backend/api part.
@@ -180,6 +189,24 @@ location = /_docgate/auth_check {
     proxy_intercept_errors off;  # return error code directly
 
     proxy_buffering off;
+
+    # --- AuthCache Start ----
+    proxy_cache auth_cache;
+    # Cookie token + possible http token; $cookie_sAccessToken => nginx extract the value of sAccessToken from Cookie
+    proxy_cache_key "$cookie_sAccessToken$http_authorization";
+
+    # avoid Cache Stampede / Thundering Herd
+    proxy_cache_lock on;
+    proxy_cache_lock_timeout 5s; # if backend failed to response in 5s, 
+    proxy_cache_lock_age 10s; # allow old cache to avoid all miss when expiring
+
+    # cache success cache for 60s. You can increase it but currently it's not necessary as auth is fast
+    proxy_cache_valid 200 60s;
+    proxy_cache_valid 401 403 2s; # cache fail cache shorter
+
+    # avoid possible header from backend that disable cache (api may use set those headers)
+    proxy_ignore_headers Cache-Control Expires Set-Cookie;
+    # --- AuthCache End ---
 }
 """
 

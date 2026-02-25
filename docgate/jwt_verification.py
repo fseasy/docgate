@@ -1,3 +1,8 @@
+"""based on https://gist.github.com/rishabhpoddar/ea31502923ec9a53136371f2b6317ffa
+it's a sync version.
+with Gemini3 help, created the async version.
+"""
+
 import asyncio
 import time
 from typing import Dict, Generic, TypeVar
