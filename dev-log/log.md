@@ -1,4 +1,118 @@
+## 26.02.25
+
+### Nginx auth cache
+
+在 http 块定义缓存区：
+
+```nginx.conf
+proxy_cache_path /tmp/nginx_auth_cache # a general path for linux & mac
+  levels=1:2
+  keys_zone=auth_cache:1m # memory cache for key, 1MB memory key - enough for 1K+ users
+  max_size=10m # disk cache for response, our auth only return code, so it's enough
+  inactive=5m  # clean after 5min
+  use_temp_path=off; # temporary files will be put directly in the cache directory instead of follow proxy_temp_path
+```
+
+在 server auth 块内开启 auth 缓存
+
+```nginx.conf
+ location = /_docgate/auth_check {
+  # 这里指向你的 Python 后端
+  proxy_pass http://127.0.0.1:YOUR_PYTHON_PORT/api/verify-session; 
+  
+  # --- 🚀 核心优化开始 ---
+  
+  proxy_cache auth_cache;
+  # Cookie token + possible http token; $cookie_sAccessToken => nginx extract the value of sAccessToken from Cookie
+  proxy_cache_key "$cookie_sAccessToken$http_authorization";
+
+  # avoid Cache Stampede / Thundering Herd
+  proxy_cache_lock on;
+  proxy_cache_lock_timeout 5s; # if backend failed to response in 5s, 
+  proxy_cache_lock_age 10s; # allow old cache to avoid all miss when expiring
+
+  # cache success cache for 60s. You can increase it but currently it's not necessary as auth is fast
+  proxy_cache_valid 200 60s;
+  proxy_cache_valid 401 403 2s; # cache fail cache shorter
+
+  # avoid possible header from backend that disable cache (api may use set those headers)
+  proxy_ignore_headers Cache-Control Expires Set-Cookie;
+
+  # NOTE: must enable proxy-buffering. Or the proxy_cache_status will always be MISS
+  proxy_buffering on;
+
+  # --- 核心优化结束 ---
+  }
+```
+
+注意：一定要设置 `proxy_buffering on;` 否则这个 cache 无效，结果总是 MISS. DEBUG 了半天，还是 Gemini 提醒了这点。
+
+> Nginx 要缓存一个请求，必须先把完整的响应内容吸收到本地的临时文件（proxy_temp_path），然后再移动到缓存目录（proxy_cache_path）。
+> 关闭 Buffer 的后果：因为你写了 proxy_buffering off;，Nginx 变成了一根单纯的“透传水管”。后端吐出哪怕一个字节，Nginx 连看都不看直接塞给客户端，它完全放弃了把响应收集起来存入本地文件的操作。
+> 最终结果：既然连“写临时文件”这个动作都被彻底阉割了，proxy_cache 也就成了无米之炊，它永远等不到一份完整的响应来生成缓存，所以不管你请求多少次，永远都是 MISS。
+
+如何 debug:
+
+在调用 auth_request 的 location 里，设置 header 显示 status ，然后在前端看 response header:
+
+```
+  location ^~ /docs/ {
+      # default strategy: go auth
+      auth_request /_docgate/auth_check;
+      auth_request_set $auth_request_time $upstream_response_time;
+      auth_request_set $auth_status $upstream_status;
+      # debug header
+      add_header X-Auth-Cache-Status $upstream_cache_status always; # MISS/HIT/EXPIRED/...
+      add_header X-Debug-Cookie $cookie_sAccessToken always; # show key
+      ...
+  }
+```
+
+## 26.02.24
+
+### supertokens 下如何使用 JWT 自己 verify session
+
+We give up calling supertokens `get_session` due to it's unpreventable core request. Use local jwt instead
+Following the doc: https://supertokens.com/docs/additional-verification/session-verification/\
+    protect-api-routes#using-a-jwt-verification-library
+
+这么搞后，auth 这块大概就是 0.02s 以下了，相比请求 core 的 get-session, 快了 10 倍（一个数量级）。
+
+### HTML <audio> preload=metadata 可优化
+
+虽然是 metadata, 但其实因为 mp3 header 不确定大小，拉取的 size 还是大概是 200K 以上。
+这个没法控制的。最好的方法就是只拉取 viewpoint 内的。方法是可行的，后续再实现。
+
 ## 26.02.23
+
+### Nginx 如何记录 auth request 时间？
+
+1. 在 auth_request 后面使用 auth_request_set 设置值
+2. 在 log 里打印值，（不存在时对应就是空串）
+
+```python
+# auth-request part
+location ^~ /{DOC_PREFIX}/ {{
+    root {HUGO_STATIC_DIR};
+    # default strategy: go auth
+    auth_request /_docgate/auth_check;
+    auth_request_set $auth_request_time $upstream_response_time;
+    auth_request_set $auth_status $upstream_status;
+}}
+
+# log
+
+log_format {NGINX_LOG_NAME} escape=json '{{'
+    '"time":"$time_iso8601",'         
+    '"remote_addr":"$remote_addr",'
+    '"method":"$request_method",'      
+    '"uri":"$request_uri",'            
+    '"status":$status,'
+    '"request_time":$request_time,'   
+    '"upstream_rt":"$upstream_response_time",' 
+    '"auth_rt":"$auth_request_time",' 
+    '"auth_status":"$auth_status",' 
+```
 
 ### Grafana Alloy 对 RFC3164 syslog 的 mapping 规则； 用 loki.echo 来 debug 
 

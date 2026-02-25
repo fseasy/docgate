@@ -113,3 +113,7 @@ def get_website_full_url(sub_path: str, query_params: dict[str, str] | None = No
   if query_params:
     u = u.with_query(query_params)
   return str(u)
+
+
+# Some Global config
+EMAIL_VERIFICATION_REQUIRED = True  # require email verification

@@ -12,9 +12,10 @@ class NginxConfGen(object):
 
   def gen(self, out_path: Path):
     log_content = _ACCESS_LOG_FMT.format(NGINX_LOG_NAME=self.NGINX_LOG_NAME)
+    auth_cache_content = _AUTH_CACHE_ZONE
     upstream_content = self._gen_upstream()
     server_content = self._gen_server()
-    content = "\n\n".join([log_content, upstream_content, server_content])
+    content = "\n\n".join([log_content, auth_cache_content, upstream_content, server_content])
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, mode="wt", encoding="utf-8") as f:
       print(content, file=f)
@@ -155,6 +156,15 @@ log_format {NGINX_LOG_NAME} escape=json '{{'
 '}}';
 """
 
+_AUTH_CACHE_ZONE = r"""
+proxy_cache_path /tmp/nginx_docgate_auth_cache # a general path for linux & mac
+  levels=1:2
+  keys_zone=docgate_auth_cache:1m # memory cache for key, 1MB memory key - enough for 1K+ users
+  max_size=10m # disk cache for response, our auth only return code, so it's enough
+  inactive=5m  # clean after 5min
+  use_temp_path=off; # temporary files will be put directly in the cache directory instead of follow proxy_temp_path
+"""
+
 _AUTH_CHECK = r"""
 # **************************
 # ! backend/api part.
@@ -179,7 +189,26 @@ location = /_docgate/auth_check {
 
     proxy_intercept_errors off;  # return error code directly
 
-    proxy_buffering off;
+
+    # --- AuthCache Start ----
+    proxy_buffering on; # It must be on, so that the cache can work. Or it'll always be MISS
+
+    proxy_cache docgate_auth_cache;
+    # Cookie token + possible http token; $cookie_sAccessToken => nginx extract the value of sAccessToken from Cookie
+    proxy_cache_key "$cookie_sAccessToken$http_authorization";
+
+    # avoid Cache Stampede / Thundering Herd
+    proxy_cache_lock on;
+    proxy_cache_lock_timeout 5s; # if backend failed to response in 5s, 
+    proxy_cache_lock_age 10s; # allow old cache to avoid all miss when expiring
+
+    # cache success cache for 60s. You can increase it but currently it's not necessary as auth is fast
+    proxy_cache_valid 200 60s;
+    proxy_cache_valid 401 403 2s; # cache fail cache shorter
+
+    # avoid possible header from backend that disable cache (api may use set those headers)
+    proxy_ignore_headers Cache-Control Expires Set-Cookie;
+    # --- AuthCache End ---
 }
 """
 
@@ -275,7 +304,10 @@ location ^~ /{DOC_PREFIX}/ {{
     auth_request /_docgate/auth_check;
     auth_request_set $auth_request_time $upstream_response_time;
     auth_request_set $auth_status $upstream_status;
-    
+    # debug for auth-cache; uncomment following 2 lines to enable debug
+    # add_header X-Auth-Cache-Status $upstream_cache_status always;
+    # add_header X-Debug-Cookie $cookie_sAccessToken always;
+
     error_page 401 = @session_handle_redirect;
     error_page 403 = @purchase_redirect;
     # avoid cache for index.html (because customer will access by /docs/xxx/), so rule is on this level.

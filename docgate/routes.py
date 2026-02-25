@@ -22,6 +22,7 @@ from docgate.supertokens_utils import (
   async_get_user as get_st_user,
   async_manually_verify_email,
 )
+from docgate.jwt_verification import verify_jwt
 
 # We define the routers to group api endpoints and support future expansion.
 user_router = APIRouter(prefix="/user", tags=["User"])
@@ -250,7 +251,11 @@ async def manually_verify_email(
 
 
 @internal_auth_router.get("/check")
-async def docgate_auth_check(request: Request, db_session: AsyncSession = Depends(get_db_async_session)):
+async def docgate_auth_check(request: Request):
+  """We give up calling supertokens `get_session` due to it's unpreventable core request. Use local jwt instead
+  Following the doc: https://supertokens.com/docs/additional-verification/session-verification/\
+                     protect-api-routes#using-a-jwt-verification-library
+  """
   REDIRECT_SESSION_HANDLE_CODE = 401
   REDIRECT_PAY_CODE = 403
   AUTH_PASS_CODE = 200
@@ -258,28 +263,29 @@ async def docgate_auth_check(request: Request, db_session: AsyncSession = Depend
 
   async def _logic():
     t = time.perf_counter()
-
+    token = request.cookies.get("sAccessToken")
     try:
-      session = await get_session(
-        request,
-        session_required=True,
-        anti_csrf_check=False,
-      )
-      assert session is not None, "`get-session` ok while session result is None"
+      if not token:
+        return Exception("No sAccessToken token in Cookies")
+      access_payload = await verify_jwt(token)
     except Exception as e:
       # For all session issue, we give an unified code so that nginx can redirect to an dedicated api
       # => `refresh-session-or-signin`
       logger.info(
         f"AuthCheck: get exception of [{e}], redirect to session handle",
-        extra={"get_session_time_cost": round(time.perf_counter() - t, 4)},
+        extra={"get_payload_time_cost": round(time.perf_counter() - t, 4)},
       )
       return Response(status_code=REDIRECT_SESSION_HANDLE_CODE)
+
     logger.info(
-      "AuthCheck get-session success",
-      extra={"get_session_time_cost": round(time.perf_counter() - t, 4), "user_id": session.user_id},
+      "AuthCheck get-payload success",
+      extra={"get_payload_time_cost": round(time.perf_counter() - t, 4), "user_id": access_payload.user_id},
     )
+    if not await UserPermissionLogic.async_check_email_verified_jwt(access_payload):
+      logger.info("AuthCheck fail, email not verified", extra={"user_id": access_payload.user_id})
+      return Response(status_code=REDIRECT_SESSION_HANDLE_CODE)
     # zero io cost for `async_check_doc_reading_permission`
-    has_read_permission = await UserPermissionLogic.async_check_doc_reading_permission(session)
+    has_read_permission = await UserPermissionLogic.async_check_doc_reading_permission_jwt(access_payload)
     if not has_read_permission:
       return Response(status_code=REDIRECT_PAY_CODE)  # redirect to pay
     return Response(status_code=AUTH_PASS_CODE)
