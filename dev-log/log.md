@@ -1,3 +1,22 @@
+## 26.02.25
+
+###
+
+## 26.02.24
+
+### supertokens 下如何使用 JWT 自己 verify session
+
+We give up calling supertokens `get_session` due to it's unpreventable core request. Use local jwt instead
+Following the doc: https://supertokens.com/docs/additional-verification/session-verification/\
+    protect-api-routes#using-a-jwt-verification-library
+
+这么搞后，auth 这块大概就是 0.02s 以下了，相比请求 core 的 get-session, 快了 10 倍（一个数量级）。
+
+### HTML <audio> preload=metadata 可优化
+
+虽然是 metadata, 但其实因为 mp3 header 不确定大小，拉取的 size 还是大概是 200K 以上。
+这个没法控制的。最好的方法就是只拉取 viewpoint 内的。方法是可行的，后续再实现。
+
 ## 26.02.23
 
 ### Nginx 如何记录 auth request 时间？
