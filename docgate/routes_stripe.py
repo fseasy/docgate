@@ -72,7 +72,7 @@ async def fulfill_checkout_webhook(request: Request, stripe_signature: str = Hea
   # 1. 获取原始字节流 (Raw Body)
   payload = await request.body()
   if not stripe_signature:
-    print("HEADER wrong")
+    logger.warning("Stripe checkout webhook unexpected input, Missing stripe-signature header")
     raise HTTPException(status_code=400, detail="Missing stripe-signature header")
 
   event = None
@@ -82,25 +82,23 @@ async def fulfill_checkout_webhook(request: Request, stripe_signature: str = Hea
     # 注意：construct_event 是同步方法，但在 FastAPI 中直接运行很快，通常不需要专门封装
     event = stripe.Webhook.construct_event(payload, stripe_signature, config.STRIP_ENDPOINT_SECRET)
   except ValueError as e:
-    print("payload wrong", e)
+    logger.warning(f"Stripe checkout webhook unexpected input, payload wrong, e={e}")
     raise HTTPException(status_code=400, detail=f"Invalid payload, {e}")
   except stripe.SignatureVerificationError as e:
-    print("signature wrong", e)
+    logger.warning(f"Stripe checkout webhook unexpected input, Invalid signature, e={e}")
     raise HTTPException(status_code=400, detail=f"Invalid signature, {e}")
 
   event_type = event["type"]
 
   if event_type == "checkout.session.completed" or event_type == "checkout.session.async_payment_succeeded":
-    print("check")
     session = event["data"]["object"]
+    logger.info(f"Stripe checkout webhook ready to fulfill-checkout, session-id={session['id']}")
     await fulfill_checkout(session["id"])
 
   return Response(content="Success", status_code=200)
 
 
 async def fulfill_checkout(session_id: str):
-  print("Fulfilling Checkout Session", session_id)
-
   # TODO: Make this function safe to run multiple times,
   # even concurrently, with the same session ID
   # TODO: Make sure fulfillment hasn't already been
@@ -119,14 +117,17 @@ async def fulfill_checkout(session_id: str):
     return
   user_id = metadata.get("user_id", None)
   if user_id is None:
+    logger.error("Stripe: Fulfill checkout fail, use_id is None")
     raise LogicError(
       f"Stripe: Fulfill checkout, can't get user_id from metadata({metadata})",
     )
   customer_detail = checkout_session.customer_details
   if customer_detail is None:
+    logger.error("Stripe: Fulfill checkout fail on logic error, customer_detail is None")
     raise LogicError("Stripe: got customer detail as None. impossible")
   email = customer_detail.email
   if email is None:
+    logger.error("Stripe: Fulfill checkout fail on logic error, email is None")
     raise LogicError("Stripe: got customer details.email as None. Impossible")
   async with get_db_async_session_cxt() as db_session:
     if is_paid_success:
