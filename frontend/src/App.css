@@ -1,2 +1,99 @@
 @import "tailwindcss";
 @plugin "daisyui";
+
+/* Copy/Share some setting from doc content site */
+
+:root {
+  /* 品牌色 & 强调色 */
+  --doc-brand-color: #FF6B35;
+  --doc-accent-color: #94A3B8;
+  --muted-border: #d6d8db;
+
+  --c-brand: var(--doc-brand-color);
+
+  --c-bg-nav: rgba(255, 255, 255, 0.9);
+
+  --c-text-muted: #666;
+
+  --border-color: var(--muted-border, #eaeaea);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  --container-width: 62rem;
+
+  @media screen and (max-width: 768px) {
+    --container-width: 100%;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    --c-bg-nav: rgba(52, 58, 64, 0.9);
+    --c-text-muted: #adb5bd;
+    --border-color: #495057;
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("/fonts/Nunito-VariableFont_wght.woff2") format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: italic;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("/fonts/Nunito-VariableFont_wght.woff2") format('woff2');
+}
+
+@font-face {
+  font-family: 'Andika';
+  font-style: normal;
+  font-weight: normal;
+  font-display: swap;
+  src: url("/fonts/andika-ipa-subset.woff2") format('woff2');
+}
+
+html {
+  scrollbar-gutter: stable both-edges;
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--c-text-main);
+  background: var(--c-bg-body);
+  font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/** Thin Scrollbar */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+
+/* Webkit (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.25);
+  border-radius: 999px;
+  transition: background-color 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.4);
+}

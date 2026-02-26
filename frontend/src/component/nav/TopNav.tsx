@@ -9,38 +9,54 @@ import { SiteConfig } from "../../config";
 
 export default function TopNavbar() {
   return (
-    <nav className='navbar bg-base-100 shadow-sm'>
-      <div className="navbar-start">
-        <Link to='/' className='btn btn-ghost text-xl'>
-          {SiteConfig.appLocaleName}
-        </Link>
-      </div>
+    <header className="sticky top-0 z-[100] h-[70px] bg-[var(--c-bg-nav)] backdrop-blur-[10px] border-b border-[var(--border-color)] flex items-center shadow-none">
 
-      <div className="navbar-end ">
-        <div className="hidden sm:flex">
-          <ul className="menu menu-horizontal px-1">
-            <UserAuthComponent />
-          </ul>
+      <nav className="w-full max-w-[var(--container-width)] mx-auto px-4 flex justify-between items-center">
+
+        <div className="flex items-center">
+          <Link
+            to='/'
+            className='text-[1.25rem] font-extrabold text-[var(--c-brand)] hover:opacity-80 transition-opacity flex gap-2 items-center'
+          >
+            {SiteConfig.appLocaleName}
+          </Link>
         </div>
-        <div className="dropdown dropdown-end">
-          <div tabIndex={0} role="button" className="btn btn-ghost sm:hidden">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" /> </svg>
+
+        <div className="flex items-center gap-0">
+
+          <div className="hidden sm:flex">
+            <ul className="menu menu-horizontal p-0 gap-0 text-[var(--c-text-muted)] font-medium">
+              <UserAuthComponent />
+            </ul>
           </div>
-          <ul tabIndex={-1} className="menu menu-md dropdown-content bg-base-100 z-99 mt-3 w-32 items-end-safe p-2 shadow">
-            <UserAuthComponent />
-          </ul>
+
+          <div className="dropdown dropdown-end sm:hidden">
+            <div tabIndex={0} role="button" className="btn btn-ghost btn-sm px-1 text-[var(--c-text-muted)] hover:bg-transparent">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+              </svg>
+            </div>
+
+            <ul
+              tabIndex={-1}
+              className="menu menu-md dropdown-content z-[1001] mt-3 w-32 p-2 shadow-[var(--shadow-sm)] rounded-lg bg-[var(--c-bg-nav)] backdrop-blur-[10px] border border-[var(--border-color)]"
+            >
+              <UserAuthComponent />
+            </ul>
+          </div>
+
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }
 
 const SignInUpComponent = () => (
   <>
-    <a onClick={() => redirectToAuth({ show: "signin" })} className='btn btn-ghost text-info'>
+    <a onClick={() => redirectToAuth({ show: "signin" })} className='font-medium text-[var(--c-text-muted)] hover:text-[var(--c-brand)] hover:bg-transparent active:!bg-transparent focus:!bg-transparent transition-colors cursor-pointer'>
       登录
     </a>
-    <a onClick={() => redirectToAuth({ show: "signup" })} className='btn btn-ghost'>
+    <a onClick={() => redirectToAuth({ show: "signup" })} className='font-medium text-[var(--c-text-muted)] hover:text-[var(--c-brand)] hover:bg-transparent active:!bg-transparent focus:!bg-transparent transition-colors cursor-pointer'>
       注册
     </a>
   </>
@@ -54,24 +70,26 @@ interface HelloSignOutProps {
   navigate: NavigateFunction;
 }
 
-const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin, isSigningOut, navigate }: HelloSignOutProps) => (
-  <>
+const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin, isSigningOut, navigate }: HelloSignOutProps) => {
+  const navItemBaseClass = "font-medium hover:bg-transparent active:!bg-transparent focus:!bg-transparent transition-colors cursor-pointer block";
+  return (<>
     <li className="hidden sm:flex">
       <span
-        className="select-text cursor-default text-base-content active:bg-transparent focus:bg-transparent hover:bg-transparent">
+        className="select-text cursor-default text-[var(--c-text-muted)] hover:bg-transparent active:!bg-transparent focus:!bg-transparent">
         Hi, {userDisplayName}
       </span>
     </li>
 
-    <div className="divider divider-horizontal"></div>
+    <div className="hidden sm:block w-[1px] h-[1.6rem] bg-[#e5e7eb] self-center mx-2"></div>
 
     <li className="tracking-widest">
       <NavLink
         to={ROUTES.DASHBOARD}
         className={({ isActive }) =>
-          isActive
-            ? "font-semibold text-base-content/70"
-            : ""
+          `${navItemBaseClass} ${isActive
+            ? "text-[var(--c-brand)]" // 对齐 &.active { color: var(--c-brand); }
+            : "text-[var(--c-text-muted)] hover:text-[var(--c-brand)]"
+          }`
         }
       >
         个人页
@@ -81,6 +99,7 @@ const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin, isSigningO
     <li className="tracking-widest">
       <button
         onClick={() => { navigate(JumpOutSPARouteLogic.genRedirect2DocRoot()); }}
+        className={`${navItemBaseClass} text-[var(--c-text-muted)] hover:text-[var(--c-brand)] text-left`}
       >
         文档页
       </button>
@@ -91,9 +110,10 @@ const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin, isSigningO
         <NavLink
           to={ROUTES.MANAGE}
           className={({ isActive }) =>
-            isActive
-              ? "font-semibold text-base-content/70"
-              : ""
+            `${navItemBaseClass} ${isActive
+              ? "text-[var(--c-brand)]"
+              : "text-[var(--c-text-muted)] hover:text-[var(--c-brand)]"
+            }`
           }
         >
           管理
@@ -106,12 +126,13 @@ const HelloSignOutComponent = ({ userDisplayName, onSignOut, isAdmin, isSigningO
       <button
         onClick={onSignOut}
         disabled={isSigningOut}
+        className={`${navItemBaseClass} text-[var(--c-text-muted)] hover:text-[var(--c-brand)] text-left`}
       >
         {isSigningOut ? <span className="loading loading-dots"></span> : "退出登录"}
       </button>
     </li>
-  </>
-);
+  </>);
+};
 
 
 

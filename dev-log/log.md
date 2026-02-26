@@ -1,4 +1,33 @@
+## 26.02.26
+
+### css box-sizing
+
+排查为啥同样的 width, 手写的 index page 和 tailwindcss 的结果就不同—css 层面的 width 都一致，但 computed width 有差距。
+最后 ChatGPT 提示是 box-sizing 的问题。
+
+https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/box-sizing
+
+有 2 个候选： 
+
+- content-box: 默认值(`content-box gives you the default CSS box-sizing behavior`. 后面看不全是)，宽度针对内容，不含 padding, border, margin.
+- border-box: 宽度包含 padding + 内容 + border，不含 margin. `box-sizing: border-box is the default styling that browsers use for the <table>, <select>, and <button> elements, and for <input> elements whose type is radio, checkbox, reset, button, submit, color, or search.`
+
+> Note: It is often useful to set box-sizing to border-box to lay out elements. This makes dealing with the sizes of elements much easier, and generally eliminates a number of pitfalls you can stumble on while laying out your content. On the other hand, when using position: relative or position: absolute, use of box-sizing: content-box allows the positioning values to be relative to the content, and independent of changes to border and padding sizes, which is sometimes desirable.
+
+=> 正常文档流用 border-box; 脱离文档流的用 content-box.
+
 ## 26.02.25
+
+### Hugo 里面的 .LinkTitle
+
+用于导航的标题—应对实际页面标题和导航标题不同的情况。
+
+有默认值： .LinkTitle = linkTitle ?? title
+
+### js IntersectionObserver 只对显示元素有效
+
+之前是绑定到 audio 上的，但是 audio 本身是隐藏的，所以没效果。
+改到父元素吧，设置了 root-margin，结果全都一次性 load 了。改成不设置，才好了。不知道具体是啥原因（因为只有 margin bottom 200px），不管了。
 
 ### Nginx auth cache
 
