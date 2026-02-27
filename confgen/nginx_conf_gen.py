@@ -386,8 +386,7 @@ def _gen_block_conf(block_head: str, content_lines: list[str], base_indent_level
 
 
 def _ensure_path_endswith_slash(p: str | Path) -> str:
-  s = str(p)
-  s.rstrip("/")
+  s = str(p).rstrip("/")
   return f"{s}/"
 
 
