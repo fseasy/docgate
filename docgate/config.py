@@ -98,7 +98,7 @@ def get_st_auth_page_full_url(show: Literal["signin", "signup"], redirect: str |
 
   no_leading_slash_auth_base = WEBSITE_AUTH_BASE_PATH.lstrip("/")
   u = URL(WEBSITE_DOMAIN) / no_leading_slash_auth_base
-  q = {"show": show}
+  q: dict[str, str] = {"show": show}
   if redirect:
     q["redirectToPath"] = redirect
   u = u.with_query(q)

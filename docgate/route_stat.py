@@ -1,13 +1,15 @@
 import time
+from collections.abc import Awaitable, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.responses import Response
 
 from .config import LOGGER as logger
 
 
 class RouteStatsMiddleware(BaseHTTPMiddleware):
-  async def dispatch(self, request: Request, call_next):
+  async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     # --- 1. 请求开始计时 ---
     start_time = time.perf_counter()
 
@@ -26,7 +28,7 @@ class RouteStatsMiddleware(BaseHTTPMiddleware):
 
     return response
 
-  def _log_request(self, request: Request, status_code: int, start_time: float, error=None):
+  def _log_request(self, request: Request, status_code: int, start_time: float, error: Exception | None = None) -> None:
     """
     统一的日志打印函数
     """
@@ -39,7 +41,7 @@ class RouteStatsMiddleware(BaseHTTPMiddleware):
     user_id = "guest"
     try:
       # Supertokens 验证成功后，通常可以在这里找到 session
-      user_id = request.session.get_user_id()
+      user_id = request.session.get_user_id()  # type: ignore
     except Exception:
       # 如果没登录，或者提取失败，就还是 guest，不要让日志逻辑搞崩服务
       pass
