@@ -266,7 +266,7 @@ async def docgate_auth_check(request: Request):
     token = request.cookies.get("sAccessToken")
     try:
       if not token:
-        return Exception("No sAccessToken token in Cookies")
+        raise Exception("No sAccessToken token in Cookies")
       access_payload = await verify_jwt(token)
     except Exception as e:
       # For all session issue, we give an unified code so that nginx can redirect to an dedicated api
