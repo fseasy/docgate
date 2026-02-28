@@ -2,7 +2,6 @@ import json
 import logging
 import socket
 import sys
-import time
 from datetime import datetime
 from logging.handlers import SysLogHandler
 
