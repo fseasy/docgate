@@ -1,6 +1,7 @@
+# type: ignore
 """Credits to copilot"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -36,7 +37,7 @@ class TestPrepaidCodeLogicBindingDbUser:
     user.tier = Tier.FREE
     user.tier_lifetime = None
     user.add_paylog = MagicMock()
-    user.last_active_at = datetime.now(tz=timezone.utc)
+    user.last_active_at = datetime.now(tz=UTC)
     return user
 
   # Test Case 1: code data 不存在

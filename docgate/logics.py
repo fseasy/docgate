@@ -1,6 +1,6 @@
 import traceback
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
 from pydantic import BaseModel
@@ -36,23 +36,22 @@ class PaidUserAttr(BaseModel):
   pay_method_raw: PayMethod | None  # used for some api that need the raw value (because pay_log_unit only store str)
 
 
-class PrepaidCodeLogic(object):
+class PrepaidCodeLogic:
   @staticmethod
-  def code_len():
+  def code_len() -> int:
     return PrepaidCodeModel.CODE_LEN
 
   @staticmethod
-  def gen_prepaid_code():
+  def gen_prepaid_code() -> str:
     """Just use uuid to generate an invite code"""
-    code = str(uuid.uuid4()).replace("-", "")[: PrepaidCodeLogic.code_len()]
-    return code
+    return str(uuid.uuid4()).replace("-", "")[: PrepaidCodeLogic.code_len()]
 
   @staticmethod
   def calc_lifetime(base: datetime | None = None) -> datetime:
     EXPIRE_DAYS = 14
 
     if not base:
-      base = datetime.now(tz=timezone.utc)
+      base = datetime.now(tz=UTC)
     return base + timedelta(days=EXPIRE_DAYS)
 
   @staticmethod
@@ -90,11 +89,11 @@ class PrepaidCodeLogic(object):
     db_user.tier_lifetime = ua.tier_lifetime
     log_str = f"验证预付款码成功[{code}]"
     db_user.add_paylog(log_str, method=PayMethod.PREPAID_CODE, is_success=True)
-    db_user.last_active_at = datetime.now(tz=timezone.utc)
+    db_user.last_active_at = datetime.now(tz=UTC)
     db_session.add(code_data)
 
 
-class PaywallLogic(object):
+class PaywallLogic:
   @staticmethod
   async def set_db_user_paid(db_session: AsyncSession, user_id: str, email: str) -> None:
     """Exception: any possible"""
@@ -135,7 +134,7 @@ class PaywallLogic(object):
     return PaidUserAttr(tier=Tier.GOLD, tier_lifetime=None, pay_log_unit=log_unit, pay_method_raw=PayMethod.PAYWALL)
 
 
-class UserPermissionLogic(object):
+class UserPermissionLogic:
   @staticmethod
   def doc_reading_on_db(user: User) -> bool:
     """Outdated strategy. Fetching the user from the database could be very slow (~2s in dev env)
@@ -145,7 +144,7 @@ class UserPermissionLogic(object):
     if not user.tier_lifetime:
       # life long
       return True
-    return datetime.now(tz=timezone.utc) <= user.tier_lifetime
+    return datetime.now(tz=UTC) <= user.tier_lifetime
 
   @staticmethod
   async def async_check_doc_reading_permission(st_session: SessionContainer) -> bool:
@@ -175,8 +174,7 @@ class UserPermissionLogic(object):
     """
     if not config.EMAIL_VERIFICATION_REQUIRED:
       return True
-    is_email_verified = payload.email_verified.value if payload.email_verified else False
-    return is_email_verified
+    return payload.email_verified.value if payload.email_verified else False
 
   @staticmethod
   async def async_set_doc_reading_permission(st_session: SessionContainer, user_id: str) -> None:
@@ -195,10 +193,12 @@ def validate_password(value: str) -> str | None:
 
   if re.search(r"[\s]", value):
     return "Password can't contain whitespace"
-  elif len(value) < 4:
+  if len(value) < 4:
     return "Password length should >= 4"
-  elif len(value) > 32:
+  if len(value) > 32:
     return "Password length should <= 32"
+
+  return None
 
 
 class FormFieldId(StrEnum):
@@ -223,7 +223,7 @@ class CreateUserStatus(StrEnum):
   INTERNAL_UNEXPECTED_ERROR = "Internal code unexpected failure, transaction rollback is expected."
 
 
-class CreateDbUserLogic(object):
+class CreateDbUserLogic:
   @staticmethod
   async def async_create_with_redeeming(
     db_session: AsyncSession, user_id: str, user_email: str, code_str: str

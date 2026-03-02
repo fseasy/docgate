@@ -3,21 +3,21 @@ from pathlib import Path
 from .data_types import EnvConfT, NginxLogConf
 
 
-class NginxConfGen(object):
+class NginxConfGen:
   INDENT_SPACE = 2
   NGINX_LOG_NAME = "json_docgate"
 
   def __init__(self, c: EnvConfT):
     self._c = c
 
-  def gen(self, out_path: Path):
+  def gen(self, out_path: Path) -> None:
     log_content = _ACCESS_LOG_FMT.format(NGINX_LOG_NAME=self.NGINX_LOG_NAME)
     auth_cache_content = _AUTH_CACHE_ZONE
     upstream_content = self._gen_upstream()
     server_content = self._gen_server()
     content = "\n\n".join([log_content, auth_cache_content, upstream_content, server_content])
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, mode="wt", encoding="utf-8") as f:
+    with open(out_path, mode="w", encoding="utf-8") as f:
       print(content, file=f)
 
   def _gen_upstream(self) -> str:
@@ -414,7 +414,7 @@ def _path_set2location_re(paths: set[str] | None) -> str:
   return pattern
 
 
-def _create_log_dir_if_necessary(log_conf: NginxLogConf):
+def _create_log_dir_if_necessary(log_conf: NginxLogConf) -> None:
   if log_conf.type != "file":
     return
   log_path = Path(log_conf.setting)

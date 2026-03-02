@@ -7,12 +7,13 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 from supertokens_python.recipe.session import SessionContainer
-from supertokens_python.recipe.session.asyncio import get_session, refresh_session
+from supertokens_python.recipe.session.asyncio import refresh_session
 from supertokens_python.recipe.session.framework.fastapi import verify_session
 from supertokens_python.recipe.userroles import UserRoleClaim
 
 from docgate import config
 from docgate.exceptions import InvalidUserInputException, LogicError
+from docgate.jwt_verification import verify_jwt
 from docgate.logics import CreateDbUserLogic, PrepaidCodeLogic, UserPermissionLogic
 from docgate.models import PayLog
 from docgate.repositories import async_create_prepaid_code, async_get_user, get_db_async_session
@@ -22,7 +23,6 @@ from docgate.supertokens_utils import (
   async_get_user as get_st_user,
   async_manually_verify_email,
 )
-from docgate.jwt_verification import verify_jwt
 
 # We define the routers to group api endpoints and support future expansion.
 user_router = APIRouter(prefix="/user", tags=["User"])
@@ -158,7 +158,7 @@ async def gen_prepaid_code(
 ) -> GenPrepaidCodeResp:
   """generate prepaid-code, record it to table"""
 
-  async def _logic():
+  async def _logic() -> GenPrepaidCodeResp:
     user_id = session.get_user_id()
     # We use Supertokens' User Role to control the permission
     roles = await session.get_claim_value(UserRoleClaim)
@@ -198,7 +198,7 @@ async def create_password_reset_link(
 ) -> CreatePasswordResetLinkResp:
   """create password reset link for a given email"""
 
-  async def _logic():
+  async def _logic() -> CreatePasswordResetLinkResp:
     user_id = session.get_user_id()
     roles = await session.get_claim_value(UserRoleClaim)
     if roles is None or StRole.ADMIN not in roles:
@@ -234,7 +234,7 @@ async def manually_verify_email(
 ) -> ManuallyVerifyEmailResp:
   """manually verify email for a given email"""
 
-  async def _logic():
+  async def _logic() -> ManuallyVerifyEmailResp:
     user_id = session.get_user_id()
     roles = await session.get_claim_value(UserRoleClaim)
     if roles is None or StRole.ADMIN not in roles:
@@ -251,7 +251,7 @@ async def manually_verify_email(
 
 
 @internal_auth_router.get("/check")
-async def docgate_auth_check(request: Request):
+async def docgate_auth_check(request: Request) -> Response:
   """We give up calling supertokens `get_session` due to it's unpreventable core request. Use local jwt instead
   Following the doc: https://supertokens.com/docs/additional-verification/session-verification/\
                      protect-api-routes#using-a-jwt-verification-library
@@ -261,12 +261,14 @@ async def docgate_auth_check(request: Request):
   AUTH_PASS_CODE = 200
   import time
 
-  async def _logic():
+  async def _logic() -> Response:
     t = time.perf_counter()
     token = request.cookies.get("sAccessToken")
+    if not token:
+      logger.info("AuthCheck: no access token")
+      return Response(status_code=REDIRECT_SESSION_HANDLE_CODE)
+
     try:
-      if not token:
-        raise Exception("No sAccessToken token in Cookies")
       access_payload = await verify_jwt(token)
     except Exception as e:
       # For all session issue, we give an unified code so that nginx can redirect to an dedicated api
@@ -298,8 +300,8 @@ async def docgate_auth_check(request: Request):
 
 
 @internal_auth_router.get("/refresh-session-or-signin")
-async def refresh_session_or_signin(request: Request):
-  def _hacking_get_redirect_url():
+async def refresh_session_or_signin(request: Request) -> RedirectResponse:
+  def _hacking_get_redirect_url() -> str:
     """Nginx can only give unquoted redirect url. If we use the request.query_params to get, it may be truncated."""
     DEFAULT_REDIRECT = "/"
     SIG = "s="

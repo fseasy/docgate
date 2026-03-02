@@ -81,8 +81,7 @@ class JsonSyslogFormatter(logging.Formatter):
     log_data.update(_get_extra_kv(record))
 
     # 4. 安全地转换为 JSON
-    msg = json.dumps(log_data, default=str)
-    return msg
+    return json.dumps(log_data, default=str)
 
 
 class NginxAlignedSyslogHandler(logging.Handler):

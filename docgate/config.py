@@ -23,8 +23,8 @@ if not _env_str:
   raise RuntimeError("No `ENV` variable is exported before running! set `ENV=dev` or `ENV=prod`!")
 try:
   env = Env(_env_str)
-except ValueError:
-  raise RuntimeError(f"Invalid ENV value: {_env_str}, candidates={[v for v in Env]}")
+except ValueError as e:
+  raise RuntimeError(f"Invalid ENV value: {_env_str}, candidates={[v for v in Env]}") from e
 
 _root_dir = Path(__file__).parent.absolute()
 _client_shared_prod_conf_path = _root_dir / ".env.client_shared.production"

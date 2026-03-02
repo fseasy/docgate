@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import IntEnum
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -45,8 +45,7 @@ class Tier(IntEnum):
 def _get_postgresql_async_uri() -> str:
   from .config import SUPABASE_CONF as c
 
-  s = f"postgresql+asyncpg://{c.user}:{c.passwd}@{c.host}:{c.port}/{c.dbname}"
-  return s
+  return f"postgresql+asyncpg://{c.user}:{c.passwd}@{c.host}:{c.port}/{c.dbname}"
 
 
 # you can set `echo=True` for debug
@@ -144,10 +143,7 @@ class PayLog(BaseModel):
   @classmethod
   def create_new_unit(cls, log: str, method: PayMethod | None, is_success: bool) -> PayLogUnit:
     method_name = method.locale_name() if method is not None else None
-    new_unit = PayLogUnit(
-      log=log, method=method_name, is_success=is_success, date=datetime.now(tz=timezone.utc).isoformat()
-    )
-    return new_unit
+    return PayLogUnit(log=log, method=method_name, is_success=is_success, date=datetime.now(tz=UTC).isoformat())
 
   @classmethod
   def from_db_str(cls, log_str: str | None) -> "PayLog":
@@ -182,12 +178,12 @@ class User(DbBaseModel):
   id: Mapped[str] = mapped_column(String(36), primary_key=True)  # for external user id
   email: Mapped[str] = mapped_column(String(100), index=True)
   # datetime In UTC tz while don't contain tz info
-  created_at: Mapped[datetime] = mapped_column(TZDateTime, default=lambda: datetime.now(tz=timezone.utc))
+  created_at: Mapped[datetime] = mapped_column(TZDateTime, default=lambda: datetime.now(tz=UTC))
   # only record when db side changes.
   last_active_at: Mapped[datetime] = mapped_column(
     TZDateTime,
-    default=lambda: datetime.now(tz=timezone.utc),
-    onupdate=lambda: datetime.now(tz=timezone.utc),
+    default=lambda: datetime.now(tz=UTC),
+    onupdate=lambda: datetime.now(tz=UTC),
   )
   tier: Mapped[Tier] = mapped_column(IntEnumDecorator(Tier))
   """Used to decide user payment, with tier_lifetime constraints"""
@@ -262,7 +258,7 @@ class PrepaidCode(DbBaseModel):
     if self.has_used:
       return (False, f"<{self}> has already been used.")
     lifetime = self.lifetime
-    if datetime.now(timezone.utc) > lifetime:
+    if datetime.now(UTC) > lifetime:
       return (False, f"<{self}> has expired.")
     return (True, None)
 

@@ -21,6 +21,7 @@ dependencies = [
 [tool.ruff]
 line-length = 120
 indent-width = 2
+exclude = ["docgate/scripts", "confgen/uni-conf", "alembic"]
 
 [tool.ruff.lint]
 # 确保 "I" (isort) 规则在启用列表中
@@ -31,6 +32,9 @@ select = ["E", "F", "B", "UP", "I", "RET"]
 force-single-line = false # 是否强制单行导入
 combine-as-imports = true # 是否合并 import as
 
+[tool.ruff.lint.per-file-ignores]
+"**/routes*.py" = ["B008"] # avoid warning on `Depends()` in route signature
+
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple/"
 default = true
@@ -40,6 +44,8 @@ strict = true
 ignore_missing_imports = true
 warn_return_any = true
 warn_unused_configs = true
+files = ["docgate"]
+exclude = ["docgate/scripts", "confgen/uni-conf", "alembic"]
 
 
 [build-system]

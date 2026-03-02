@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
@@ -24,11 +24,15 @@ stripe_router = APIRouter(prefix="/stripe", tags=["UserStripe"])
 logger = config.LOGGER
 
 
+class CreateCheckoutSessionResponse(BaseModel):
+  clientSecret: str | None
+
+
 @stripe_router.post("/create-checkout-session")
 async def create_checkout_session(
   st_session: SessionContainer = Depends(verify_session()),
-):
-  def _build_return_url():
+) -> CreateCheckoutSessionResponse:
+  def _build_return_url() -> str:
     url = config.get_website_full_url(config.STRIPE_RETURN_ROUTE_PATH)
     return url + "?session_id={CHECKOUT_SESSION_ID}"  # CHECKOUT_SESSION_ID is template var for stripe
 
@@ -55,20 +59,25 @@ async def create_checkout_session(
     mode="payment",
     return_url=return_url,
   )
-  return {"clientSecret": stripe_session.client_secret}
+  return CreateCheckoutSessionResponse(clientSecret=stripe_session.client_secret)
+
+
+class SessionStatusResponse(BaseModel):
+  status: Literal["complete", "expired", "open"] | None
+  customer_email: str | None
 
 
 @stripe_router.get("/session-status")
-async def session_status(session_id: str):
+async def session_status(session_id: str) -> SessionStatusResponse:
   session = await stripe.checkout.Session.retrieve_async(session_id)
-  return {
-    "status": session.status,
-    "customer_email": session.customer_details.email if session.customer_details else None,
-  }
+  return SessionStatusResponse(
+    status=session.status,
+    customer_email=session.customer_details.email if session.customer_details else None,
+  )
 
 
 @stripe_router.post("/fulfill-checkout-webhook")
-async def fulfill_checkout_webhook(request: Request, stripe_signature: str = Header(None)):
+async def fulfill_checkout_webhook(request: Request, stripe_signature: str = Header(None)) -> Response:
   # 1. 获取原始字节流 (Raw Body)
   payload = await request.body()
   if not stripe_signature:
@@ -80,13 +89,13 @@ async def fulfill_checkout_webhook(request: Request, stripe_signature: str = Hea
   try:
     # 2. 验证签名
     # 注意：construct_event 是同步方法，但在 FastAPI 中直接运行很快，通常不需要专门封装
-    event = stripe.Webhook.construct_event(payload, stripe_signature, config.STRIP_ENDPOINT_SECRET)
+    event = stripe.Webhook.construct_event(payload, stripe_signature, config.STRIP_ENDPOINT_SECRET)  # type: ignore
   except ValueError as e:
     logger.warning(f"Stripe checkout webhook unexpected input, payload wrong, e={e}")
-    raise HTTPException(status_code=400, detail=f"Invalid payload, {e}")
+    raise HTTPException(status_code=400, detail=f"Invalid payload, {e}") from e
   except stripe.SignatureVerificationError as e:
     logger.warning(f"Stripe checkout webhook unexpected input, Invalid signature, e={e}")
-    raise HTTPException(status_code=400, detail=f"Invalid signature, {e}")
+    raise HTTPException(status_code=400, detail=f"Invalid signature, {e}") from e
 
   event_type = event["type"]
 
@@ -98,7 +107,7 @@ async def fulfill_checkout_webhook(request: Request, stripe_signature: str = Hea
   return Response(content="Success", status_code=200)
 
 
-async def fulfill_checkout(session_id: str):
+async def fulfill_checkout(session_id: str) -> None:
   # TODO: Make this function safe to run multiple times,
   # even concurrently, with the same session ID
   # TODO: Make sure fulfillment hasn't already been
@@ -158,7 +167,7 @@ async def after_pay(
   req: AfterPayReq,
   st_session: SessionContainer = Depends(verify_session()),
   db_session: AsyncSession = Depends(get_db_async_session),
-):
+) -> AfterPayResp:
   """
   1. check if it success. (should only be triggered after successfully pay. but may have dirty input.)
   2. add doc-reading permission (it can only be done here, with supertokens session)

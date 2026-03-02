@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -20,7 +20,7 @@ def add_utc_tz_if_eligible(dt: datetime | None) -> datetime | None:
   if dt is None:
     return None
   if dt.tzinfo is None:
-    return dt.replace(tzinfo=timezone.utc)
+    return dt.replace(tzinfo=UTC)
   return dt
 
 
