@@ -5,7 +5,7 @@ with Gemini3 help, created the async version.
 
 import asyncio
 import time
-from typing import Dict, Generic, TypeVar
+from typing import Self, TypedDict, TypeVar
 
 import httpx
 from jwt import PyJWK, PyJWKClient, decode, get_unverified_header
@@ -25,15 +25,15 @@ class _AsyncJWKManager:
     self.jwks_uri = jwks_uri
     self.cache_ttl = cache_ttl
     self._jwks_client = PyJWKClient(jwks_uri)
-    self._signing_keys: Dict[str, PyJWK] = {}  # Map kid -> PyJWK
-    self._last_refresh_time = 0
+    self._signing_keys: dict[str, PyJWK] = {}  # Map kid -> PyJWK
+    self._last_refresh_time = 0.0
     self._lock = asyncio.Lock()  # asyncio lock to prevent cache stampede
 
   def _is_cache_fresh(self) -> bool:
     """Check if cache is fresh"""
     return (time.time() - self._last_refresh_time) < self.cache_ttl
 
-  async def _refresh_keys(self):
+  async def _refresh_keys(self) -> None:
     """
     Asynchronously refresh JWKS.
     Uses httpx instead of requests to avoid blocking the event loop.
@@ -98,12 +98,17 @@ _jwk_manager = _AsyncJWKManager(_JWKS_URI)
 T = TypeVar("T")
 
 
-class VersionedValue(BaseModel, Generic[T]):
+class RawVersionedValue[T](TypedDict):
+  v: T
+  t: int
+
+
+class VersionedValue[T](BaseModel):
   value: T
   updated_at: int
 
   @classmethod
-  def from_raw(cls, data: dict):
+  def from_raw(cls, data: RawVersionedValue[T]) -> Self:
     return cls(value=data["v"], updated_at=data["t"])
 
 
@@ -133,7 +138,7 @@ class AuthJWTPayload(BaseModel):
 
   @field_validator("email_verified", "roles", "permissions", mode="before")
   @classmethod
-  def parse_versioned(cls, v):
+  def parse_versioned(cls, v: RawVersionedValue[T]) -> VersionedValue[T]:
     if v is None:
       return None
     return VersionedValue.from_raw(v)

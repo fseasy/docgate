@@ -100,9 +100,9 @@ def _gen_default_hugo_public_doc_paths() -> set[str]:
     "",  # doc root
     "010-update-log",
     "020-usage-manual",
-    "030-routine-care",
-    "030-routine-care/getup",
-    "030-routine-care/020-putting-on-clothes",
+    "030-speaking-scenes",
+    "030-speaking-scenes/getup",
+    "030-speaking-scenes/020-putting-on-clothes",
   ]
   return set(sub_paths)
 

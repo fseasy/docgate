@@ -1,6 +1,7 @@
 import traceback
+from collections.abc import Callable
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from supertokens_python import InputAppInfo, SupertokensConfig, init
 from supertokens_python.ingredients.emaildelivery.types import EmailDeliveryConfig, SMTPSettings, SMTPSettingsFrom
@@ -8,6 +9,8 @@ from supertokens_python.recipe import dashboard, emailpassword, emailverificatio
 from supertokens_python.recipe.emailpassword.interfaces import (
   APIInterface,
   APIOptions,
+  EmailAlreadyExistsError,
+  SignUpPostNotAllowedResponse,
   SignUpPostOkResult,
 )
 from supertokens_python.recipe.emailpassword.types import FormField
@@ -19,10 +22,16 @@ from supertokens_python.types.response import GeneralErrorResponse
 
 from . import config as base_conf
 
+if TYPE_CHECKING:
+  from supertokens_python.recipe.session.interfaces import SessionContainer
+  from supertokens_python.recipe_module import RecipeModule
+  from supertokens_python.supertokens import AppInfo
+
+
 logger = base_conf.LOGGER
 
 
-def init_supertokens():
+def init_supertokens() -> None:
   supertokens_config = SupertokensConfig(
     connection_uri=base_conf.SUPERTOKENS_CONNECTION_URI, api_key=base_conf.SUPERTOKENS_API_KEY
   )
@@ -67,12 +76,12 @@ class StRole(StrEnum):
   ADMIN = "admin"
 
 
-def _init_emailpassword():
+def _init_emailpassword() -> "Callable[[AppInfo], RecipeModule]":
   from supertokens_python.recipe.emailpassword import InputFormField
 
   from .logics import CreateDbUserLogic, CreateUserStatus, FormFieldId, UserPermissionLogic, validate_password
 
-  def _override_email_password_apis(original_implementation: APIInterface):
+  def _override_email_password_apis(original_implementation: APIInterface) -> APIInterface:
     from supertokens_python.recipe.session.interfaces import SessionContainer
 
     original_sign_up_post = original_implementation.sign_up_post
@@ -84,7 +93,7 @@ def _init_emailpassword():
       should_try_linking_with_session_user: bool | None,
       api_options: APIOptions,
       user_context: dict[str, Any],
-    ):
+    ) -> SignUpPostOkResult | EmailAlreadyExistsError | SignUpPostNotAllowedResponse | GeneralErrorResponse:
       # First we call the original implementation of sign_up_post.
       response = await original_sign_up_post(
         form_fields,
@@ -128,7 +137,7 @@ def _init_emailpassword():
 
       return response
 
-    original_implementation.sign_up_post = sign_up_post
+    original_implementation.sign_up_post = sign_up_post  # type: ignore [method-assign]
     return original_implementation
 
   async def _validate_password(value: str, _tenant_id: str) -> str | None:
@@ -164,7 +173,7 @@ def _get_smtp_settings() -> SMTPSettings:
   )
 
 
-def _override_session_functions(original_implementation: SessionRecipeInterface):
+def _override_session_functions(original_implementation: SessionRecipeInterface) -> SessionRecipeInterface:
   from .supertokens_utils import async_get_user
 
   original_create_new_session = original_implementation.create_new_session
@@ -177,7 +186,7 @@ def _override_session_functions(original_implementation: SessionRecipeInterface)
     disable_anti_csrf: bool | None,
     tenant_id: str,
     user_context: dict[str, Any],
-  ):
+  ) -> "SessionContainer":
     # * Add email to the access session payload
     user_data = await async_get_user(user_id)
     if user_data and user_data.emails:
@@ -195,5 +204,5 @@ def _override_session_functions(original_implementation: SessionRecipeInterface)
       user_context,
     )
 
-  original_implementation.create_new_session = create_new_session
+  original_implementation.create_new_session = create_new_session  # type: ignore
   return original_implementation

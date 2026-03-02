@@ -57,7 +57,7 @@ AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire
 """Async Session maker instance"""
 
 
-class IntEnumDecorator(TypeDecorator):
+class IntEnumDecorator(TypeDecorator):  # type: ignore
   """Save IntEnum as Int in DB, but read as IntEnum as Python."""
 
   impl = Integer  # tell the the impl
@@ -83,7 +83,7 @@ class IntEnumDecorator(TypeDecorator):
     return self.enum_class(value)
 
 
-class TZDateTime(TypeDecorator):
+class TZDateTime(TypeDecorator):  # type: ignore [type-arg]
   """Save & Load always keep the UTC tz.
   - in DB: no tz info
   - in application: always has tz
@@ -220,7 +220,7 @@ class User(DbBaseModel):
     return new_log
 
   @property
-  def continuous_pay_failure_cnt(self):
+  def continuous_pay_failure_cnt(self) -> int:
     """count continuous failure count"""
     log = PayLog.from_db_str(self.pay_log)
     cnt = 0
@@ -274,16 +274,16 @@ class PrepaidCode(DbBaseModel):
     )
 
 
-async def create_all_tables():
+async def create_all_tables() -> None:
   async with async_engine.begin() as conn:
     await conn.run_sync(DbBaseModel.metadata.create_all)
 
 
-async def drop_all_tables():
+async def drop_all_tables() -> None:
   async with async_engine.begin() as conn:
     await conn.run_sync(DbBaseModel.metadata.drop_all)
 
 
-async def dispose_engine():
+async def dispose_engine() -> None:
   """Call this when you need to exit the APP! or the app will hang forever!"""
   await async_engine.dispose()

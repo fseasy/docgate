@@ -47,7 +47,7 @@ _syslog_addr_str = os.environ["SYSLOG_RECEIVER_ADDR"]
 
 if _value := _syslog_addr_str.strip():
   _host, _port = _value.split(":")
-  _addr = (_host, int(_port))
+  _addr: tuple[str, int] | None = (_host, int(_port))
 else:
   _addr = None
 
