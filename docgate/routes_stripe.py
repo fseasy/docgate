@@ -68,7 +68,10 @@ class SessionStatusResponse(BaseModel):
 
 
 @stripe_router.get("/session-status")
-async def session_status(session_id: str) -> SessionStatusResponse:
+async def session_status(
+  session_id: str,
+  _st_session: SessionContainer = Depends(verify_session()),
+) -> SessionStatusResponse:
   session = await stripe.checkout.Session.retrieve_async(session_id)
   return SessionStatusResponse(
     status=session.status,
@@ -102,7 +105,10 @@ async def fulfill_checkout_webhook(request: Request, stripe_signature: str = Hea
   if event_type == "checkout.session.completed" or event_type == "checkout.session.async_payment_succeeded":
     session = event["data"]["object"]
     logger.info(f"Stripe checkout webhook ready to fulfill-checkout, session-id={session['id']}")
-    await fulfill_checkout(session["id"])
+    try:
+      await fulfill_checkout(session["id"])
+    except Exception as e:
+      raise HTTPException(status_code=502, detail=f"Failed to fulfill checkout, e={e}") from e
 
   return Response(content="Success", status_code=200)
 
@@ -123,7 +129,9 @@ async def fulfill_checkout(session_id: str) -> None:
   metadata = checkout_session.metadata
   if not metadata:
     logger.error("Stripe: Fulfill checkout, can't get metadata from checkout session")
-    return
+    raise LogicError(
+      f"Stripe: Fulfill checkout, can't get metadata({metadata})",
+    )
   user_id = metadata.get("user_id", None)
   if user_id is None:
     logger.error("Stripe: Fulfill checkout fail, use_id is None")

@@ -4,11 +4,13 @@ import ContentPageLayout from "../../component/ContentPageLayout";
 import { isPathPrefixBelongsToSPA, JumpOutSPARouteLogic, ROUTES } from "../../routes";
 
 export default function NotFoundPage() {
+  const DEV_REDIRECT_DELAY_MS = 1000;
   const pathname = window.location.pathname;
 
   const navigate = useNavigate();
   const isInSPA = isPathPrefixBelongsToSPA(pathname);
   const fullUrl = window.location.href;
+  const isDev = import.meta.env.DEV;
 
   useEffect(() => {
     let tgtUrl = "";
@@ -17,7 +19,11 @@ export default function NotFoundPage() {
     } else {
       tgtUrl = JumpOutSPARouteLogic.genRedirectRelativeURL(fullUrl);
     }
-    const timer = setTimeout(() => navigate(tgtUrl), 1000);
+    if (!isDev) {
+      navigate(tgtUrl, { "replace": true });
+      return;
+    }
+    const timer = setTimeout(() => navigate(tgtUrl), DEV_REDIRECT_DELAY_MS);
     return () => clearTimeout(timer);
   }, [isInSPA, fullUrl, navigate]);
 

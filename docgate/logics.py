@@ -225,9 +225,7 @@ class CreateUserStatus(StrEnum):
 
 class CreateDbUserLogic:
   @staticmethod
-  async def async_create_with_redeeming(
-    db_session: AsyncSession, user_id: str, user_email: str, code_str: str
-  ) -> CreateUserStatus:
+  async def async_create_with_redeeming(db_session: AsyncSession, user_id: str, user_email: str, code_str: str) -> User:
     """With given code, create user with checking the code. If code is invalid, we'll fallback to create a free user.
     Exception:
     - known: InvalidUserInputException: code not exists in db/ unredeemable
@@ -254,7 +252,7 @@ class CreateDbUserLogic:
       f"RedeemCode Success: redeem code=[{code_str}]. Paid user [{db_user}] created.",
       extra={"user_id": user_id, "email": user_email},
     )
-    return CreateUserStatus.CREATE_AND_REDEEM_SUCCESS
+    return db_user
 
   @staticmethod
   async def async_create_after_supertokens_signup(user: StUser, form_fields: list[FormField]) -> CreateUserStatus:
@@ -289,9 +287,10 @@ class CreateDbUserLogic:
           extra={"user_id": user.id, "email": user_email},
         )
         return CreateUserStatus.REDEEM_FAILED_ON_NO_PREPAID_CODE_IN_FORM_INPUT
-      return await CreateDbUserLogic.async_create_with_redeeming(
+      await CreateDbUserLogic.async_create_with_redeeming(
         db_session=db_session, user_id=user.id, user_email=user_email, code_str=prepaid_code_str
       )
+      return CreateUserStatus.CREATE_AND_REDEEM_SUCCESS
 
     if not user.emails:
       logger.error(f"SuperTokens user doesn't contain emails: {user.to_json()}", extra={"user_id": user.id})

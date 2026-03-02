@@ -10,7 +10,7 @@ from typing import Self, TypedDict, TypeVar
 import httpx
 from jwt import PyJWK, PyJWKClient, decode, get_unverified_header
 from jwt.exceptions import DecodeError, PyJWKClientError
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from .config import LOGGER as logger, SUPERTOKENS_CONNECTION_URI
 
@@ -113,6 +113,8 @@ class VersionedValue[T](BaseModel):
 
 
 class AuthJWTPayload(BaseModel):
+  model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
   # === standard JWT ===
   issued_at: int = Field(alias="iat")
   expires_at: int = Field(alias="exp")
@@ -142,10 +144,6 @@ class AuthJWTPayload(BaseModel):
     if v is None:
       return None
     return VersionedValue.from_raw(v)
-
-  class Config:
-    populate_by_name = True
-    extra = "ignore"
 
 
 async def verify_jwt(token: str) -> AuthJWTPayload:

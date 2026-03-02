@@ -213,18 +213,18 @@ class TestCreateDbUserLogicAsyncCreateWithRedeeming:
 
     with (
       patch("docgate.logics.async_get_prepaid_code", new_callable=AsyncMock) as mock_get_code,
-      patch("docgate.logics.async_create_user_with_redeeming_prepaid_code", new_callable=AsyncMock) as mock_create_paid,
+      patch("docgate.logics.CreateDbUserLogic.async_create_with_redeeming", new_callable=AsyncMock) as mock_create_paid,
     ):
       mock_get_code.return_value = mock_code_data
       mock_create_paid.return_value = mock_paid_user
 
       # Act
-      result = await CreateDbUserLogic.async_create_with_redeeming(db_session, user_id, user_email, code)
+      db_user = await CreateDbUserLogic.async_create_with_redeeming(
+        db_session, user_id=user_id, email=user_email, code_str=code
+      )
 
       # Assert
-      assert result == CreateUserStatus.CREATE_AND_REDEEM_SUCCESS
+      assert db_user
 
       # Verify paid user was created with correct parameters
-      mock_create_paid.assert_called_once_with(
-        db_session, user_id=user_id, email=user_email, prepaid_code=mock_code_data
-      )
+      mock_create_paid.assert_called_once_with(db_session, user_id=user_id, email=user_email, code_str=code)

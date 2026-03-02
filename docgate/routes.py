@@ -116,13 +116,16 @@ async def user_purchase_by_code(
   """bind code to user, then add doc-reading permission"""
   uid = session.user_id
   code = req.prepaid_code
+  # bind code to user (create if necessary)
   try:
     db_user = await async_get_user(db_session, user_id=uid, for_update=True)
     if not db_user:
       st_user = await get_st_user(uid)
       if not st_user:
-        raise LogicError("Failed to get supertokens user for uid=[uid], which looks impossible")
-      await CreateDbUserLogic.async_create_with_redeeming(
+        raise LogicError(f"Failed to get supertokens user for uid=[{uid}], which looks impossible")
+      if not st_user.emails:
+        raise LogicError(f"Supertokens user emails is Empty. u={st_user}")
+      db_user = await CreateDbUserLogic.async_create_with_redeeming(
         db_session=db_session, user_id=uid, user_email=st_user.emails[0], code_str=code
       )
     else:
@@ -134,7 +137,6 @@ async def user_purchase_by_code(
     logger.error(f"{err}", extra={"user_id": uid, "code": code})
     return PurchaseByCodeResp(fail_reason=err)
   # set permission
-  assert db_user
   try:
     await UserPermissionLogic.async_set_doc_reading_permission(session, user_id=uid)
   except Exception as e:
