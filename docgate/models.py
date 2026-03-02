@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from enum import IntEnum
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, NullPool, String, Text, TypeDecorator
+from sqlalchemy import Boolean, DateTime, Dialect, ForeignKey, Integer, NullPool, String, Text, TypeDecorator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -56,16 +57,16 @@ AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire
 """Async Session maker instance"""
 
 
-class IntEnumDecorator(TypeDecorator):
+class IntEnumDecorator(TypeDecorator):  # type: ignore
   """Save IntEnum as Int in DB, but read as IntEnum as Python."""
 
   impl = Integer  # tell the the impl
 
-  def __init__(self, enum_class, *args, **kwargs):
+  def __init__(self, enum_class: type[IntEnum], *args: Any, **kwargs: Any):
     super().__init__(*args, **kwargs)
     self.enum_class = enum_class
 
-  def process_bind_param(self, value, dialect):
+  def process_bind_param(self, value: None | IntEnum, dialect: Dialect) -> int | None:
     """write"""
     del dialect
     if value is None:
@@ -74,7 +75,7 @@ class IntEnumDecorator(TypeDecorator):
       return value.value
     return value
 
-  def process_result_value(self, value, dialect):
+  def process_result_value(self, value: int | None, dialect: Dialect) -> IntEnum | None:
     """read"""
     del dialect
     if value is None:
@@ -82,7 +83,7 @@ class IntEnumDecorator(TypeDecorator):
     return self.enum_class(value)
 
 
-class TZDateTime(TypeDecorator):
+class TZDateTime(TypeDecorator):  # type: ignore [type-arg]
   """Save & Load always keep the UTC tz.
   - in DB: no tz info
   - in application: always has tz
@@ -98,7 +99,7 @@ class TZDateTime(TypeDecorator):
   impl = DateTime
   cache_ok = True  # allow SQLAlchemy cache
 
-  def process_bind_param(self, value, dialect):
+  def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
     """write flow: transform to UTC, then remove tz info"""
     if value is None:
       return None
@@ -107,13 +108,13 @@ class TZDateTime(TypeDecorator):
 
     utc_value = value.astimezone(ZoneInfo("UTC"))
     clean_value = utc_value.replace(tzinfo=None)
-    return clean_value
+    return clean_value  # noqa: RET504
 
-  def process_result_value(self, value, dialect):
+  def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
     """read flow: add UTC tz info"""
     if value is None:
       return None
-    return value.replace(tzinfo=timezone.utc)
+    return value.replace(tzinfo=ZoneInfo("UTC"))  # noqa: UP017
 
 
 class DbBaseModel(DeclarativeBase):
@@ -219,7 +220,7 @@ class User(DbBaseModel):
     return new_log
 
   @property
-  def continuous_pay_failure_cnt(self):
+  def continuous_pay_failure_cnt(self) -> int:
     """count continuous failure count"""
     log = PayLog.from_db_str(self.pay_log)
     cnt = 0
@@ -273,16 +274,16 @@ class PrepaidCode(DbBaseModel):
     )
 
 
-async def create_all_tables():
+async def create_all_tables() -> None:
   async with async_engine.begin() as conn:
     await conn.run_sync(DbBaseModel.metadata.create_all)
 
 
-async def drop_all_tables():
+async def drop_all_tables() -> None:
   async with async_engine.begin() as conn:
     await conn.run_sync(DbBaseModel.metadata.drop_all)
 
 
-async def dispose_engine():
+async def dispose_engine() -> None:
   """Call this when you need to exit the APP! or the app will hang forever!"""
   await async_engine.dispose()

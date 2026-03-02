@@ -7,7 +7,7 @@ class ApiBaseException(Exception):
     self._user_msg = user_msg
 
   @property
-  def user_msg(self):
+  def user_msg(self) -> str:
     """fallback to raw msg"""
     return self._user_msg or str(self)
 

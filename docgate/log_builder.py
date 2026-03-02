@@ -10,7 +10,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-def build_logger(name: str, level: int, syslog_address: tuple[str, int] | None = None, domain: str | None = None):
+def build_logger(
+  name: str, level: int, syslog_address: tuple[str, int] | None = None, domain: str | None = None
+) -> logging.Logger:
   """
   Args:
     syslog_address: used for syslog (you can setup a grafana alloy), will send a json log
@@ -44,7 +46,7 @@ def build_logger(name: str, level: int, syslog_address: tuple[str, int] | None =
 
 
 class SingleLineFormatter(logging.Formatter):
-  def format(self, record):
+  def format(self, record: logging.LogRecord) -> str:
     fmt_line = super().format(record)
     single_line = fmt_line.replace("\n", " ↵ ")
     # naively append extra fields
@@ -89,7 +91,7 @@ class NginxAlignedSyslogHandler(logging.Handler):
   解决了 Python SysLogHandler 日期填充错误、格式错位的问题。
   """
 
-  def __init__(self, address: tuple[str, int], hostname: str, facility=23):
+  def __init__(self, address: tuple[str, int], hostname: str, facility: int = 23):
     super().__init__()
     self.address = address
     # 强制替换非法字符，保持与 Nginx (site_docgate) 类似的纯净 TAG
@@ -98,7 +100,7 @@ class NginxAlignedSyslogHandler(logging.Handler):
     self.facility = facility  # Nginx 默认多用 Local7 (23)
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-  def emit(self, record):
+  def emit(self, record: logging.LogRecord) -> None:
     try:
       # 1. 提取 JSON message
       msg = self.format(record).lstrip()  # remove the potential leading space to keep the format
