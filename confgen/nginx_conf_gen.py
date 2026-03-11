@@ -325,7 +325,7 @@ location ^~ /{DOC_PREFIX}/ {{
     }}
 
     # * Resource rule1: add cache for none html resources under /docs/ (with auth by inherent)
-    location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif)$ {{
+    location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|webp|png|gif)$ {{
         try_files $uri =404;
         add_header Cache-Control "private, max-age=604800";
     }}
@@ -400,7 +400,7 @@ def _path_set2location_re(paths: set[str] | None) -> str:
   inner_group = inner_group.replace(r"\-", "-")  # avoid the unnecessary `\-` escape
 
   # allowed resources
-  exts = "mp3|mp4|m4a|wav|pdf|css|js|jpe?g|png|gif|svg|woff2?|otf|ttf|pdf"
+  exts = "mp3|mp4|m4a|wav|pdf|css|js|jpe?g|png|gif|webp|svg|woff2?|otf|ttf|pdf"
   # 1. pure `/docs/` without any inner-group & suffix
   # 2. / & /index with a sub-path html
   # 3. any specific resources or in sub dir of `audios/`,`images/`
