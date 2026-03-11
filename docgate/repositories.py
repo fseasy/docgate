@@ -1,6 +1,7 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,9 +109,9 @@ async def async_create_paid_user_with_paywall(
 
 async def async_create_free_user(
   session: AsyncSession, *, user_id: str, email: str, pay_log_unit: PayLogUnit, do_commit: bool = False
-):
+) -> User:
   """Business logic"""
-  user = await async_create_user(
+  return await async_create_user(
     session,
     user_id=user_id,
     email=email,
@@ -119,7 +120,6 @@ async def async_create_free_user(
     pay_log=PayLog(logs=[pay_log_unit]),
     do_commit=do_commit,
   )
-  return user
 
 
 async def async_get_user(session: AsyncSession, user_id: str, for_update: bool = False) -> User | None:
@@ -127,8 +127,7 @@ async def async_get_user(session: AsyncSession, user_id: str, for_update: bool =
   if for_update:
     stmt = stmt.with_for_update()
   r = await session.execute(stmt)
-  u = r.scalar()
-  return u
+  return r.scalar()
 
 
 async def async_delete_user(session: AsyncSession, user_id: str) -> str | None:
@@ -137,6 +136,7 @@ async def async_delete_user(session: AsyncSession, user_id: str) -> str | None:
   if not u:
     return f"Delete user(id={user_id}) failed due to it doesn't exist in our db"
   await session.delete(u)  # will unbind prepaid-codes user id.
+  return None
 
 
 async def async_create_prepaid_code(
@@ -160,5 +160,4 @@ async def async_get_prepaid_code(session: AsyncSession, code: str, for_update: b
   if for_update:
     stmt = stmt.with_for_update()  # LOCK
   r = await session.execute(stmt)
-  code_data = r.scalars().first()
-  return code_data
+  return r.scalars().first()

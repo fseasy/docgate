@@ -1,6 +1,6 @@
 import argparse
 import asyncio
-from typing import Iterable
+from collections.abc import Iterable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -1,5 +1,6 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -22,7 +23,7 @@ logger = config.LOGGER
 logger.info("Init Supertokens")
 
 
-def _init_stripe():
+def _init_stripe() -> None:
   import stripe
 
   stripe.api_key = config.STRIPE_API_KEY
@@ -44,7 +45,7 @@ async def lifespan_main(app: FastAPI) -> AsyncGenerator[Any, None]:
 
 app = FastAPI(title=f"{config.APP_NAME}-backend", lifespan=lifespan_main)
 
-app.add_middleware(get_middleware())
+app.add_middleware(get_middleware())  # type: ignore
 
 # start apis. NOTE: we've added the same prefix for all our self-hosted api! (for nginx routing!)
 app.include_router(admin_router, prefix=config.API_COMMON_BASE_PATH)
@@ -54,17 +55,17 @@ app.include_router(stripe_router, prefix=config.API_COMMON_BASE_PATH)
 
 
 @app.exception_handler(RequestValidationError)
-async def input_param_validation_handler(exec: RequestValidationError):
+async def input_param_validation_handler(exec: RequestValidationError) -> JSONResponse:
   return JSONResponse(content={"error_type": "invalid-input-param", "error_detail": str(exec)}, status_code=400)
 
 
 @app.exception_handler(ApiBaseException)
-async def internal_exception_handler(exec: ApiBaseException):
+async def internal_exception_handler(exec: ApiBaseException) -> JSONResponse:
   return JSONResponse(content={"error_type": "internal-error", "error_detail": str(exec)}, status_code=500)
 
 
 @app.exception_handler(Exception)
-async def unknown_internal_exception_handler(exec: Exception):
+async def unknown_internal_exception_handler(exec: Exception) -> JSONResponse:
   return JSONResponse(content={"error_type": "unknown-internal-error", "error_detail": str(exec)}, status_code=500)
 
 

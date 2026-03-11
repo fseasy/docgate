@@ -3,21 +3,21 @@ from pathlib import Path
 from .data_types import EnvConfT, NginxLogConf
 
 
-class NginxConfGen(object):
+class NginxConfGen:
   INDENT_SPACE = 2
   NGINX_LOG_NAME = "json_docgate"
 
   def __init__(self, c: EnvConfT):
     self._c = c
 
-  def gen(self, out_path: Path):
+  def gen(self, out_path: Path) -> None:
     log_content = _ACCESS_LOG_FMT.format(NGINX_LOG_NAME=self.NGINX_LOG_NAME)
     auth_cache_content = _AUTH_CACHE_ZONE
     upstream_content = self._gen_upstream()
     server_content = self._gen_server()
     content = "\n\n".join([log_content, auth_cache_content, upstream_content, server_content])
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, mode="wt", encoding="utf-8") as f:
+    with open(out_path, mode="w", encoding="utf-8") as f:
       print(content, file=f)
 
   def _gen_upstream(self) -> str:
@@ -325,7 +325,7 @@ location ^~ /{DOC_PREFIX}/ {{
     }}
 
     # * Resource rule1: add cache for none html resources under /docs/ (with auth by inherent)
-    location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|png|gif)$ {{
+    location ~* ^/{DOC_PREFIX}/.*\.(m4a|mp3|wav|pdf|jpg|jpeg|webp|png|gif)$ {{
         try_files $uri =404;
         add_header Cache-Control "private, max-age=604800";
     }}
@@ -400,7 +400,7 @@ def _path_set2location_re(paths: set[str] | None) -> str:
   inner_group = inner_group.replace(r"\-", "-")  # avoid the unnecessary `\-` escape
 
   # allowed resources
-  exts = "mp3|mp4|m4a|wav|pdf|css|js|jpe?g|png|gif|svg|woff2?|otf|ttf|pdf"
+  exts = "mp3|mp4|m4a|wav|pdf|css|js|jpe?g|png|gif|webp|svg|woff2?|otf|ttf|pdf"
   # 1. pure `/docs/` without any inner-group & suffix
   # 2. / & /index with a sub-path html
   # 3. any specific resources or in sub dir of `audios/`,`images/`
@@ -414,7 +414,7 @@ def _path_set2location_re(paths: set[str] | None) -> str:
   return pattern
 
 
-def _create_log_dir_if_necessary(log_conf: NginxLogConf):
+def _create_log_dir_if_necessary(log_conf: NginxLogConf) -> None:
   if log_conf.type != "file":
     return
   log_path = Path(log_conf.setting)

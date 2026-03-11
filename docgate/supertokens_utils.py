@@ -1,3 +1,6 @@
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any
+
 from pydantic import BaseModel
 from supertokens_python.recipe.emailpassword.asyncio import create_reset_password_link
 from supertokens_python.recipe.emailverification.asyncio import (
@@ -11,6 +14,9 @@ from supertokens_python.types import RecipeUserId, User
 
 from . import config as base_conf
 from .supertokens_config import StRole
+
+if TYPE_CHECKING:
+  from supertokens_python.recipe.session.interfaces import SessionClaimValidator, SessionContainer
 
 logger = base_conf.LOGGER
 
@@ -31,8 +37,7 @@ async def async_get_user_by_email(email: str) -> list[User]:
   from supertokens_python.asyncio import list_users_by_account_info
   from supertokens_python.types.base import AccountInfoInput
 
-  user_infos = await list_users_by_account_info("public", AccountInfoInput(email=email))
-  return user_infos
+  return await list_users_by_account_info("public", AccountInfoInput(email=email))
 
 
 async def async_add_role2user(user_id: str, role: StRole) -> tuple[bool, str | None]:
@@ -48,7 +53,7 @@ async def async_add_role2user(user_id: str, role: StRole) -> tuple[bool, str | N
   return (True, None)
 
 
-async def async_init_roles():
+async def async_init_roles() -> None:
   """NOTE: you can only create role on yourself environment. i.e., you can't create role in the `try.supertokens.io`"""
   logger.info("Init supertokens roles")
 
@@ -66,12 +71,14 @@ async def async_init_roles():
     logger.info(f"Supertokens-UserRole: created {StRole.ADMIN} role")
 
 
-def verify_session_with_admin_role():
+def verify_session_with_admin_role() -> Callable[..., Coroutine[Any, Any, "SessionContainer | None"]]:
   """Used for verify admin role in fastapi Depends style. We don't use this currently"""
   from supertokens_python.recipe.session.framework.fastapi import verify_session
   from supertokens_python.recipe.userroles import UserRoleClaim
 
-  def new_validator(global_validators, session, user_context):
+  def new_validator(
+    global_validators: list[SessionClaimValidator], session: "SessionContainer", user_context: dict[str, Any]
+  ) -> list[SessionClaimValidator]:
     return global_validators + [UserRoleClaim.validators.includes(StRole.ADMIN.value)]
 
   return verify_session(
@@ -116,9 +123,8 @@ async def async_create_password_reset_link(email: str) -> CreatePasswordResetLin
 
   if isinstance(link, str):
     return CreatePasswordResetLinkRet(is_success=True, link=link, fail_reason=None)
-  else:
-    fail_reason = "user does not exist or is not an email password user"
-    return CreatePasswordResetLinkRet(is_success=False, link=None, fail_reason=fail_reason)
+  fail_reason = "user does not exist or is not an email password user"
+  return CreatePasswordResetLinkRet(is_success=False, link=None, fail_reason=fail_reason)
 
 
 async def async_manually_verify_email(email: str) -> tuple[bool, str | None]:

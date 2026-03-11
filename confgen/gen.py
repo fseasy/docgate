@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 from pydantic import BaseModel
 
@@ -11,11 +11,12 @@ from confgen.nginx_conf_gen import NginxConfGen
 g_backup: BackupManager | None = None
 
 
-def main():
+def main() -> None:
   global g_backup
 
   parser = argparse.ArgumentParser(description="Config generator")
-  parser.add_argument("--env", "-e", required=True, choices=EnvT.__args__, help="generate which env")
+
+  parser.add_argument("--env", "-e", required=True, choices=get_args(EnvT), help="generate which env")
   args = parser.parse_args()
 
   env = args.env
@@ -37,7 +38,7 @@ def _get_env_conf(env: EnvT) -> EnvConfT:
   return conf
 
 
-def _gen_backend_conf(env: EnvT, c: EnvConfT):
+def _gen_backend_conf(env: EnvT, c: EnvConfT) -> None:
   backend_dir = c.module_dir.backend
   env2suffix: dict[EnvT, str] = {"dev": "local", "staging": "staging", "prod": "production"}
   suffix = env2suffix[env]
@@ -67,7 +68,7 @@ def _gen_backend_conf(env: EnvT, c: EnvConfT):
   print(f"WRITE> backend-conf: shared={shared_conf_path}, server={server_conf_path}", file=sys.stderr)
 
 
-def _gen_vite_conf(env: EnvT, c: EnvConfT):
+def _gen_vite_conf(env: EnvT, c: EnvConfT) -> None:
   vite_dir = c.module_dir.vite
   env2suffix: dict[EnvT, str] = {"dev": "local", "staging": "staging", "prod": "production"}
   suffix = env2suffix[env]
@@ -93,12 +94,11 @@ def _gen_nginx_conf(env: EnvT, c: EnvConfT) -> None:
   )
 
 
-def _get_vite_backend_shared_data(c) -> dict[str, Any]:
-  shared_data = {
+def _get_vite_backend_shared_data(c: EnvConfT) -> dict[str, Any]:
+  return {
     **_model2dict(c.basic, None),
     **_model2dict(c.stripe, ["VITE_STRIPE_RETURN_ROUTE_PATH", "VITE_STRIPE_PUBLISHABLE_API_KEY"]),
   }
-  return shared_data
 
 
 def _model2dict(m: BaseModel, keys: list[str] | None) -> dict[str, Any]:
@@ -107,7 +107,7 @@ def _model2dict(m: BaseModel, keys: list[str] | None) -> dict[str, Any]:
   return {k: getattr(m, k) for k in keys}
 
 
-def _write_dict2env_file(env_dict: dict[str, Any], file_path: Path):
+def _write_dict2env_file(env_dict: dict[str, Any], file_path: Path) -> None:
   import shlex
 
   with open(file_path, "w", encoding="utf-8") as f:

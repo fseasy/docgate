@@ -140,7 +140,7 @@ class EnvConfT(BaseModel):
   module_dir: ModuleDirT = ModuleDirT()
 
 
-class BackupManager(object):
+class BackupManager:
   def __init__(self, env: EnvT):
     import time
 
@@ -148,7 +148,7 @@ class BackupManager(object):
     self._cur_dir = _gen_abs_dir(f"./backup/{env}/{sig}", check=False)
     self._cur_dir.mkdir(parents=True, exist_ok=True)
 
-  def backup(self, src_path: Path, name: str):
+  def backup(self, src_path: Path, name: str) -> None:
     import shutil
 
     if not src_path.exists():
