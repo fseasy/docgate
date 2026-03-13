@@ -100,6 +100,8 @@ def _gen_default_hugo_public_doc_paths() -> set[str]:
     "",  # doc root
     "010-update-log",
     "020-usage-manual",
+    "020-usage-manual/content-desc",
+    "020-usage-manual/shortcut",
     "030-speaking-scenes",
     "030-speaking-scenes/getup",
     "030-speaking-scenes/020-putting-on-clothes",
