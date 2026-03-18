@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """For quickly test syslog receiver"""
 
 import socket
