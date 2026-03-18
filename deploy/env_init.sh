@@ -66,8 +66,8 @@ Description=Docgate FastAPI App
 After=network.target
 
 [Service]
-# change to simple as LLM suggesting
-Type=simple
+Type=notify
+NotifyAccess=main
 
 # NOTE: here I just set it to root. Change as your actual condition.
 User=root
