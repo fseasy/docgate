@@ -9,9 +9,14 @@ set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# for ssh-login execution in github workflows (non-login shell)
+# Add $PATH (Very important, or the following tools will be install once again due to it's not in non-login shell path)
+export PATH="$HOME/.local/bin:$HOME/.local/share/pnpm:$PATH"
+
+
 # install uv for python (only if not installed)
 if ! command -v uv &> /dev/null; then
-    echo "Installing uv..."
+    echo "Installing uv..." # in $HOME/.local/bin
     wget -qO- https://astral.sh/uv/install.sh | sh
 else
     echo "uv already installed. Skipping."
@@ -19,7 +24,7 @@ fi
 
 # install pnpm (only if not installed)
 if ! command -v pnpm &> /dev/null; then
-    echo "Installing pnpm..."
+    echo "Installing pnpm..." # in $HOME/.local/share/pnpm
     wget -qO- https://get.pnpm.io/install.sh | sh -
 else
     echo "pnpm already installed. Skipping."
@@ -27,7 +32,7 @@ fi
 
 # install git (only if not installed)
 if ! command -v git &> /dev/null; then
-    echo "Installing Git..."
+    echo "Installing Git..." # in /usr/bin
     sudo apt install -y git
 else
     echo "Git already installed. Skipping."
@@ -45,7 +50,6 @@ DOCGATE_SRC_DIR="$PROJECT_ROOT_LOCAL_DIR/docgate"
 CONF_SYNC_GIT_REPO_LOCAL_DIR=/root/github/private-conf/web/docgate/confgen
 NGINX_SYSTEM_CONF_DIR=/etc/nginx/conf.d
 SYSTEMD_SERVICE_NAME="docgate-fastapi"
-PATH="$HOME/.local/bin:$HOME/.local/share/pnpm:$PATH" # for github workflow
 
 cat > $SCRIPT_DIR/.env << EOF
 
