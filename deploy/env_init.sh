@@ -3,8 +3,8 @@
 # It should be run only once in the machine
 # run this file in the current dir.
 # or use bash to run it.
-
-set -e
+set -Eeuo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"; exit 1' ERR
 set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -45,7 +45,7 @@ DOCGATE_SRC_DIR="$PROJECT_ROOT_LOCAL_DIR/docgate"
 CONF_SYNC_GIT_REPO_LOCAL_DIR=/root/github/private-conf/web/docgate/confgen
 NGINX_SYSTEM_CONF_DIR=/etc/nginx/conf.d
 SYSTEMD_SERVICE_NAME="docgate-fastapi"
-PATH="$PATH:$HOME/.local/bin:$HOME/.local/share/pnpm" # for github workflow
+PATH="$HOME/.local/bin:$HOME/.local/share/pnpm:$PATH" # for github workflow
 
 cat > $SCRIPT_DIR/.env << EOF
 
@@ -76,13 +76,13 @@ WorkingDirectory=$DOCGATE_SRC_DIR
 Environment="PATH=$VENV_BIN_DIR"
 Environment="ENV=$ENV"
 # Note: I set worker=1.
-ExecStart=$VENV_BIN_DIR/gunicorn app:app \
-  -k uvicorn.workers.UvicornWorker \
-  -w 1 \
-  --timeout 60 \
+ExecStart=$VENV_BIN_DIR/gunicorn app:app \\
+  -k uvicorn.workers.UvicornWorker \\
+  -w 1 \\
+  --timeout 60 \\
   -b 127.0.0.1:3001
 
-ExecReload=/bin/kill -s HUP $MAINPID
+ExecReload=/bin/kill -s HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=30
 
