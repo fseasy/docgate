@@ -35,13 +35,9 @@ echo "now switch to release branch"
 git fetch origin --prune
 git checkout release
 git reset --hard origin/release
-# 2. create venv
-echo "create venv"
-uv venv .venv --allow-existing --python 3.12
-# 3. install dependency & install editable mode
-echo "install dependency"
-uv sync
-uv pip install -e .
+# 2. create venv & install dependency & install editable mode
+echo "create venv & install dependency"
+uv sync --frozen --no-dev  # --frozen 保证不修改 lock 文件，--no-dev 只装生产依赖
 # 4. gen conf; link the nginx conf to the system nginx conf dir
 echo "Generate conf for $ENV"
 cd  "$PROJECT_ROOT_LOCAL_DIR/confgen"
