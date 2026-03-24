@@ -1,5 +1,5 @@
-# after `uv sync`, or under `uv run`, the PYTHONPATH will include the $CONFGEN root dir. so import path based on it.
-from lib.data_types import (
+# after `uv sync`, it'll install the package as docgate_confgen
+from docgate_confgen.data_types import (
   BasicConfigT,
   DeployConfT,
   EnvConfT,

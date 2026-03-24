@@ -1,40 +1,41 @@
-import argparse
 import sys
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any
 
 from pydantic import BaseModel
-from fs_pyutils.lang_basic import import_module_from_path
 
-from lib.data_types import BackupManager, EnvConfT, EnvT
-from lib.nginx_conf_gen import NginxConfGen
+from .data_types import BackupManager, EnvConfT, EnvT
+from .nginx_conf_gen import NginxConfGen
 
 g_backup: BackupManager | None = None
 
 
-def main() -> None:
+def main(env: EnvT) -> None:
   global g_backup
 
-  parser = argparse.ArgumentParser(description="Config generator")
-
-  parser.add_argument("--env", "-e", required=True, choices=get_args(EnvT), help="generate which env")
-  args = parser.parse_args()
-
-  env = args.env
   g_backup = BackupManager(env)
 
   conf = _get_env_conf(env)
   _gen_backend_conf(env, conf)
   _gen_vite_conf(env, conf)
   _gen_nginx_conf(env, conf)
-  print("===> Finished.")
 
 
 def _get_env_conf(env: EnvT) -> EnvConfT:
-  conf_path = Path(__file__).parent / f"uni-conf/{env}/conf.py"
-  c = import_module_from_path("conf", conf_path)
-  conf: EnvConfT = c.Conf
-  return conf
+  if env == "dev":
+    from .unified_conf.dev.conf import Conf as dev_conf
+
+    return dev_conf
+  if env == "prod":
+    from .unified_conf.prod.conf import Conf as prod_conf
+
+    return prod_conf
+  if env == "staging":
+    from .unified_conf.staging.conf import Conf as staging_conf  # type: ignore
+
+    return staging_conf
+
+  raise ValueError(f"failed to load unified-env as invalid env value: {env}")
 
 
 def _gen_backend_conf(env: EnvT, c: EnvConfT) -> None:
@@ -113,7 +114,3 @@ def _write_dict2env_file(env_dict: dict[str, Any], file_path: Path) -> None:
     for key, value in env_dict.items():
       safe_value = shlex.quote(str(value))
       f.write(f"{key}={safe_value}\n")
-
-
-if __name__ == "__main__":
-  main()

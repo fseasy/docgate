@@ -86,7 +86,7 @@ else
 fi
 #! 2. gen all configs from confgen
 echo "🐟 Generate conf for [$ENV]"
-UNICONF_PROJECT_INSIDE_DIR="${CONFGEN_DIR}/uni-conf/$ENV"
+UNICONF_PROJECT_INSIDE_DIR="${CONFGEN_DIR}/src/docgate_confgen/unified_conf/$ENV"
 # * 1. prepare conf from another private repo:
 # > a. enter the private repo to fetch the latest conf b. link it to the project inside
 echo "> pull the config ${ENV}.py from ${CONF_SYNC_GIT_REPO_LOCAL_DIR} git repo"
@@ -99,7 +99,7 @@ cd "${CONFGEN_DIR}"
 uv sync --frozen --no-dev # --frozen 保证不修改 lock 文件，--no-dev 只装生产依赖
 # * 3. gen configs and env vars
 echo "> Gen all configs and envs"
-uv run python gen.py -e "$ENV"
+uv run python cli.py -e "$ENV"
 
 #! 3. build vite app
 echo "🐟 Pnpm install & Vite build"
