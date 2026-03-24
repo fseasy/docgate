@@ -9,6 +9,8 @@ from starlette.middleware.cors import CORSMiddleware
 from supertokens_python import get_all_cors_headers
 from supertokens_python.framework.fastapi import get_middleware
 
+from fs_pyutils.systemd_notifier import systemd_notifier_lifespan
+
 from docgate import config
 from docgate.exceptions import ApiBaseException
 from docgate.repositories import lifespan_db
@@ -17,6 +19,7 @@ from docgate.routes import admin_router, internal_auth_router, user_router
 from docgate.routes_stripe import stripe_router
 from docgate.supertokens_config import init_supertokens
 from docgate.supertokens_utils import async_init_roles
+
 
 logger = config.LOGGER
 
@@ -38,9 +41,10 @@ logger.info("Build app")
 
 @asynccontextmanager
 async def lifespan_main(app: FastAPI) -> AsyncGenerator[Any, None]:
-  async with lifespan_db(app):
+  async with lifespan_db(app) as async_engine:
     await async_init_roles()
-    yield
+    async with systemd_notifier_lifespan(app=app, async_db_engine=async_engine, logger=logger):
+      yield
 
 
 app = FastAPI(title=f"{config.APP_NAME}-backend", lifespan=lifespan_main)

@@ -170,14 +170,25 @@ deploy_gunicorn_systemd_service() {
 	fi
 
 	# 5. check results
-	sleep 1 # wait some time
+  echo "Waiting for $service_name to become active..."
+  timeout=60
+  while [ $timeout -gt 0 ]; do
+      if sudo systemctl is-active --quiet "$service_name"; then
+          echo "Result: $service_name is successfully running."
+          break
+      else
+        echo $"Not ok yet(timeout=${timeout})."
+        sleep 5
+        timeout=$((timeout-5))
+      fi
+  done
+
 	if sudo systemctl is-active --quiet "$service_name"; then
-		echo "Result: $service_name is successfully running."
+    echo "Service status:"
+    sudo systemctl --no-pager --full status "$service_name"
 	else
 		echo "Result: $service_name failed to start. Check 'journalctl -u $service_name' for logs."
 		return 1
 	fi
-	echo "Service status:"
-	# will trigger exit if status isn't running
-	sudo systemctl --no-pager --full status "$service_name"
+
 }
