@@ -4,9 +4,10 @@ from pathlib import Path
 from typing import Any, get_args
 
 from pydantic import BaseModel
+from fs_pyutils.lang_basic import import_module_from_path
 
-from confgen.data_types import BackupManager, EnvConfT, EnvT
-from confgen.nginx_conf_gen import NginxConfGen
+from lib.data_types import BackupManager, EnvConfT, EnvT
+from lib.nginx_conf_gen import NginxConfGen
 
 g_backup: BackupManager | None = None
 
@@ -30,10 +31,8 @@ def main() -> None:
 
 
 def _get_env_conf(env: EnvT) -> EnvConfT:
-  import importlib
-
-  module_name = f"confgen.uni-conf.{env}.conf"
-  c = importlib.import_module(module_name)
+  conf_path = Path(__file__).parent / f"uni-conf/{env}/conf.py"
+  c = import_module_from_path("conf", conf_path)
   conf: EnvConfT = c.Conf
   return conf
 
