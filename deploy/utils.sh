@@ -59,7 +59,7 @@ safe_ln_test_and_link() {
 
 	# 检查是否需要 sudo:
 	# 不是 root (UID 0) 且 对目标目录没有写权限
-	if [[ "$USE_SUDO" == "true" ]] || ([[ $EUID -ne 0 ]] && [[ ! -w "$target_dir" ]]); then
+	if [[ "${USE_SUDO:-false}" == "true" ]] || ([[ $EUID -ne 0 ]] && [[ ! -w "$target_dir" ]]); then
 		cmd_prefix="sudo"
 	fi
 

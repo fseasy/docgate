@@ -4,7 +4,7 @@
 
 set -Eeuo pipefail
 trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"; exit 1' ERR
-set -x
+# set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

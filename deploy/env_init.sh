@@ -11,7 +11,7 @@
 
 set -Eeuo pipefail
 trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"; exit 1' ERR
-set -x
+# set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT_LOCAL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -47,7 +47,7 @@ fi
 #! ENV var defines
 BACKEND_ROOT_DIR="$PROJECT_ROOT_LOCAL_DIR/backend"
 GUNICORN_BIN="$BACKEND_ROOT_DIR/.venv/bin/gunicorn"
-SYSTEMD_SERVICE_NAME="docgate-fastapi"
+SYSTEMD_SERVICE_FILE_NAME="docgate-fastapi.service"
 
 # Following ENV vars are machine specific
 # 如果存在 .machine.env，则引入它
@@ -71,7 +71,7 @@ ENV="$ENV"
 PROJECT_ROOT_LOCAL_DIR="$PROJECT_ROOT_LOCAL_DIR"
 CONF_SYNC_GIT_REPO_LOCAL_DIR="$CONF_SYNC_GIT_REPO_LOCAL_DIR"
 NGINX_SYSTEM_CONF_DIR="$NGINX_SYSTEM_CONF_DIR"
-SYSTEMD_SERVICE_FILE_NAME="${SYSTEMD_SERVICE_NAME}.service"
+SYSTEMD_SERVICE_FILE_NAME="${SYSTEMD_SERVICE_FILE_NAME}"
 BACKEND_ROOT_DIR="$BACKEND_ROOT_DIR"
 PATH="$PATH"
 
@@ -104,9 +104,9 @@ ExecStart=$GUNICORN_BIN \\
 ExecReload=/bin/kill -s HUP \$MAINPID
 KillMode=mixed
 
-WatchdogSec=45
+WatchdogSec=120
 RestartSec=10
-TimeoutStopSec=30
+TimeoutStopSec=40
 Restart=always
 
 [Install]
