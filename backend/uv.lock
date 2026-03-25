@@ -691,8 +691,8 @@ wheels = [
 
 [[package]]
 name = "fs-pyutils"
-version = "1.1.2"
-source = { git = "https://github.com/fseasy/fs-pyutils.git#4b3c10b5b72fdee1b24c195466156b7563441704" }
+version = "2.0.0"
+source = { git = "https://github.com/fseasy/fs-pyutils.git#306dd88fc211d14919042d44c6a591411fcdda60" }
 
 [[package]]
 name = "greenlet"

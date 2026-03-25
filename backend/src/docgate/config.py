@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
+from fs_pyutils.log_builder import build_logger, SyslogLogField
 
-from docgate.log_builder import build_logger
 from docgate.utils import normalize_fastapi_base_path
 
 
@@ -53,8 +53,10 @@ else:
 
 API_DOMAIN = os.environ["VITE_API_DOMAIN"]
 
+
+_syslog_field = SyslogLogField(host=API_DOMAIN, tag="docgate_fastapi")
 LOGGER = build_logger(
-  APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO, syslog_address=_addr, domain=API_DOMAIN
+  APP_NAME, logging.DEBUG if env == Env.DEV else logging.INFO, syslog_address=_addr, syslog_log_field=_syslog_field
 )
 
 LOGGER.info(f"Loaded client and server environmental vars for ENV={env}")

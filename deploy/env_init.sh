@@ -60,10 +60,10 @@ fi
 : "${ENV:="prod"}"
 : "${CONF_SYNC_GIT_REPO_LOCAL_DIR:="/root/github/private-conf/web/docgate/confgen"}"
 : "${NGINX_SYSTEM_CONF_DIR:="/etc/nginx/conf.d"}"
-# following 2 are required by GunicornSyslogLogger
+# following 3 are used for GunicornSyslogLogger
 : "${SYSLOG_ADDRESS:="127.0.0.1:11514"}"
-: "${HOSTNAME:="docgate_fastapi"}"
-
+: "${SYSLOG_HOSTNAME:="docgate.fastapi"}"
+: "${SYSLOG_TAG:="docgate_fastapi"}"
 # * export `PATH` so the following scripts don't need to worry about the key binary usage
 cat >$SCRIPT_DIR/.env <<EOF
 
@@ -94,7 +94,8 @@ WorkingDirectory=$BACKEND_ROOT_DIR
 Environment="ENV=$ENV"
 # required by gunicorn & fastapi service logger
 Environment="SYSLOG_ADDRESS=$SYSLOG_ADDRESS"
-Environment="HOSTNAME=$HOSTNAME"
+Environment="SYSLOG_HOSTNAME=$SYSLOG_HOSTNAME"
+Environment="SYSLOG_TAG=$SYSLOG_TAG"
 
 # Note: I set worker=1.
 ExecStart=$GUNICORN_BIN \\
