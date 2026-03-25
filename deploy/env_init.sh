@@ -105,9 +105,11 @@ ExecStart=$GUNICORN_BIN \\
 ExecReload=/bin/kill -s HUP \$MAINPID
 KillMode=mixed
 
-WatchdogSec=120
-RestartSec=10
+WatchdogSec=180
+# it might be too slow when init, give it more time
+TimeoutStartSec=180
 TimeoutStopSec=40
+RestartSec=5
 Restart=always
 
 [Install]
