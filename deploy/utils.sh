@@ -171,13 +171,14 @@ deploy_gunicorn_systemd_service() {
 
 	# 5. check results
 	echo "Waiting for $service_name to become active..."
-	timeout=370 # max 2 restart
+	timeout=120
 	while [ $timeout -gt 0 ]; do
 		if sudo systemctl is-active --quiet "$service_name"; then
-			echo "Result: $service_name is successfully running."
+			echo -e "\nResult: $service_name is successfully running. ✅"
 			break
 		else
-			echo "Not ok yet(timeout=${timeout})."
+			# \r 让光标回到行首，-n 确保不换行
+			echo -ne "\rWaiting for $service_name... (Timeout remaining: ${timeout}s)   "
 			sleep 5
 			timeout=$((timeout - 5))
 		fi

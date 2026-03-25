@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from enum import IntEnum
 from typing import Any
@@ -282,4 +283,7 @@ async def drop_all_tables() -> None:
 
 async def dispose_engine() -> None:
   """Call this when you need to exit the APP! or the app will hang forever!"""
-  await async_engine.dispose()
+  try:
+    await asyncio.wait_for(async_engine.dispose(), timeout=5.0)
+  except Exception as e:
+    logger.exception(f"Warning: async_engine.dispose() error/timeout: {e}")

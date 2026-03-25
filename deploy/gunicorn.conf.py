@@ -6,7 +6,10 @@ from fs_pyutils.systemd_notifier import intercept_server_ready_signal
 bind = "127.0.0.1:3001"
 workers = 1
 worker_class = "uvicorn.workers.UvicornWorker"
-timeout = 60
+graceful_timeout = 10
+timeout = 30
+control_socket_disable = True
+"""it may cause deadlock: Possible deadlock in 25.1.0 when preload_app=True during worker boot #3529"""
 loglevel = "info"
 logger_class = "fs_pyutils.gunicorn_logger.GunicornSyslogLogger"
 

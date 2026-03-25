@@ -106,9 +106,9 @@ ExecReload=/bin/kill -s HUP \$MAINPID
 KillMode=mixed
 
 WatchdogSec=180
-# it might be too slow when init, give it more time
-TimeoutStartSec=180
-TimeoutStopSec=40
+# not too short, but not too long - it may just hang, restart(kill&start) will fix it.
+TimeoutStartSec=30
+TimeoutStopSec=20
 RestartSec=5
 Restart=always
 

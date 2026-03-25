@@ -5,11 +5,10 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fs_pyutils.systemd_notifier import systemd_notifier_lifespan
 from starlette.middleware.cors import CORSMiddleware
 from supertokens_python import get_all_cors_headers
 from supertokens_python.framework.fastapi import get_middleware
-
-from fs_pyutils.systemd_notifier import systemd_notifier_lifespan
 
 from docgate import config
 from docgate.exceptions import ApiBaseException
@@ -19,7 +18,6 @@ from docgate.routes import admin_router, internal_auth_router, user_router
 from docgate.routes_stripe import stripe_router
 from docgate.supertokens_config import init_supertokens
 from docgate.supertokens_utils import async_init_roles
-
 
 logger = config.LOGGER
 
