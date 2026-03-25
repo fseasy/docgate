@@ -49,18 +49,26 @@ class NginxConfGen:
 
   def _gen_main_server_block(self) -> str:
     n = self._c.deploy.nginx
-    if not n.standard_reverse_proxy:
-      conf_lines = [f"listen {n.listen_port};"]
-    else:
-      conf_lines = [
-        "listen 443 ssl;",
-        "listen [::]:443 ssl;",
-      ]
-      assert n.ssl_conf_lines, "SSL conf is empty in standard reverse proxy"
+    conf_lines: list[str] = []
+
+    def _gen_listen_lines(is_ssl: bool, port: int) -> list[str]:
+      ssl_part = " ssl" if is_ssl else ""  # note the space before `ssl`.
+      return [f"listen {port}{ssl_part};", f"listen [::]:{port}{ssl_part};"]
+
+    is_ssl = bool(n.ssl_conf_lines)
+    actual_port = 443 if n.standard_reverse_proxy else n.listen_port
+    conf_lines.extend(_gen_listen_lines(is_ssl, actual_port))
+    conf_lines.append("")
+
+    if is_ssl and n.ssl_conf_lines:  # to make mypy happy
+      # must add `SSL` if we have ssl config (to support https)
       conf_lines.extend(n.ssl_conf_lines)
+      conf_lines.append("")
+    else:
+      assert not n.standard_reverse_proxy, "SSL conf is empty in standard reverse proxy"
     if n.server_name:
       server_line = f"server_name {n.server_name};"
-      conf_lines.append(server_line)
+      conf_lines.extend([server_line, ""])
     else:
       assert not n.standard_reverse_proxy, "server_name is required in standard reverse proxy"
 

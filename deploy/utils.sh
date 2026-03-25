@@ -157,11 +157,11 @@ deploy_gunicorn_systemd_service() {
 		# ---------- Update ----------
 		if cmp -s "$source_fpath" "$target_fpath"; then
 			# reload when no service file no change
-			echo "Status: Config unchanged → Ensuring service is active..."
+			echo "Status: Config unchanged → Reload service or restarting..."
 			# try to reload when service has `ExecReload=`
 			sudo systemctl reload "$service_name" 2>/dev/null || sudo systemctl restart "$service_name"
 		else
-			# 文件内容已变
+			# config changed.
 			echo "Status: Config changed → Updating and Restarting..."
 			sudo install -m 644 "$source_fpath" "$target_fpath"
 			sudo systemctl daemon-reload
