@@ -40,7 +40,8 @@ def _get_env_conf(env: EnvT) -> EnvConfT:
 
 def _gen_backend_conf(env: EnvT, c: EnvConfT) -> None:
   backend_dir = c.module_dir.backend
-  env2suffix: dict[EnvT, str] = {"dev": "local", "staging": "staging", "prod": "production"}
+  # make independent env to make debug easier
+  env2suffix: dict[EnvT, str] = {"dev": "dev", "staging": "staging", "prod": "prod"}
   suffix = env2suffix[env]
   # back-compatibility for manual management
   shared_conf_path = backend_dir / f".env.client_shared.{suffix}"
@@ -70,8 +71,13 @@ def _gen_backend_conf(env: EnvT, c: EnvConfT) -> None:
 
 def _gen_vite_conf(env: EnvT, c: EnvConfT) -> None:
   vite_dir = c.module_dir.vite
-  env2suffix: dict[EnvT, str] = {"dev": "local", "staging": "staging", "prod": "production"}
-  suffix = env2suffix[env]
+  #! note: here we also mapping staging to production name, so we can just use the default `build` param
+  env2vite_default_suffix: dict[EnvT, str] = {
+    "dev": "development.local",
+    "staging": "production.local",
+    "prod": "production.local",
+  }
+  suffix = env2vite_default_suffix[env]
   env_path = vite_dir / f".env.{suffix}"
   _write_dict2env_file(_get_vite_backend_shared_data(c), env_path)
   print(f"WRITE> vite-env-conf: {env_path}", file=sys.stderr)

@@ -1,19 +1,36 @@
 import logging
 import os
+import sys
 from collections import namedtuple
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from fs_pyutils.log_builder import build_logger, SyslogLogField
+from fs_pyutils.log_builder import SyslogLogField, build_logger
 
 from docgate.utils import normalize_fastapi_base_path
 
 
 class Env(StrEnum):
   DEV = "dev"
+  STAGING = "staging"
   PROD = "prod"
+
+
+class _EnvVarLoader:
+  _ENV2SUFFIX: dict[Env, str] = {Env.DEV: "dev", Env.STAGING: "staging", Env.PROD: "prod"}
+  _ENV_FILE_DIR = Path(__file__).parent.absolute()  # same as the module dir.
+
+  @classmethod
+  def load_from_dotenv(cls, env: Env) -> None:
+    env_file_suffix = cls._ENV2SUFFIX[env]
+    client_shared_conf_path = cls._ENV_FILE_DIR / f".env.client_shared.{env_file_suffix}"
+    server_conf_path = cls._ENV_FILE_DIR / f".env.server.{env_file_suffix}"
+    print(f"> docgate: load client shared conf from [{client_shared_conf_path}]", file=sys.stderr)
+    load_dotenv(client_shared_conf_path)
+    print(f"> docgate: load client shared conf from [{server_conf_path}]", file=sys.stderr)
+    load_dotenv(server_conf_path)
 
 
 _env_str = os.getenv("env") or os.getenv("ENV")
@@ -26,19 +43,7 @@ try:
 except ValueError as e:
   raise RuntimeError(f"Invalid ENV value: {_env_str}, candidates={[v for v in Env]}") from e
 
-_root_dir = Path(__file__).parent.absolute()
-_client_shared_prod_conf_path = _root_dir / ".env.client_shared.production"
-_client_shared_dev_conf_path = _root_dir / ".env.client_shared.local"
-_server_dev_conf_path = _root_dir / ".env.server.local"
-_server_prod_conf_path = _root_dir / ".env.server.production"
-
-if env == Env.PROD:
-  load_dotenv(_client_shared_prod_conf_path)
-  load_dotenv(_server_prod_conf_path)
-else:
-  load_dotenv(_client_shared_dev_conf_path)
-  load_dotenv(_server_dev_conf_path)
-
+_EnvVarLoader.load_from_dotenv(env)
 
 APP_NAME = os.environ["VITE_APP_NAME"]
 APP_LOCALE_NAME = os.environ["VITE_APP_LOCALE_NAME"]
