@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from .models import (
   AsyncSessionLocal,
@@ -13,6 +13,7 @@ from .models import (
   PrepaidCode,
   Tier,
   User,
+  async_engine,
   create_all_tables,
   dispose_engine,
 )
@@ -35,9 +36,9 @@ get_db_async_session_cxt = asynccontextmanager(get_db_async_session)
 
 
 @asynccontextmanager
-async def lifespan_db(_: "FastAPI | None") -> AsyncGenerator[Any, None]:
+async def lifespan_db(_: "FastAPI | None") -> AsyncGenerator[AsyncEngine, None]:
   await create_all_tables()  # create tables if eligible
-  yield
+  yield async_engine
   await dispose_engine()  # dispose db after app close!
 
 

@@ -4,75 +4,128 @@
 
 set -Eeuo pipefail
 trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"; exit 1' ERR
-set -x
+# set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # source env exported by env_init.sh
 source $SCRIPT_DIR/.env
+source $SCRIPT_DIR/utils.sh
+
+#! -------- Args ---------
+# 定义 mode 的所有合法候选值
+VALID_MODES=(
+	"deving"  # 本地开发调试模式（不会强制切分支，可以本地修改+调试运行）
+	"serving" # 线上服务模式
+)
+
+MODE=""
+
+# --- 帮助信息 ---
+usage() {
+	echo "Usage: $0 --mode {${VALID_MODES[*]}}"
+	exit 1
+}
+
+# --- 参数解析 ---
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--mode)
+		# 获取参数值（确保 $2 存在）
+		val="${2:-}"
+
+		# 调用通用函数校验：把值传进去，再把整个候选数组传进去
+		if is_in_list "$val" "${VALID_MODES[@]}"; then
+			MODE="$val"
+			shift 2
+		else
+			echo "❌ Error: Invalid mode '$val'. Expected one of: [${VALID_MODES[*]}]"
+			usage
+		fi
+		;;
+	*)
+		usage
+		;;
+	esac
+done
+
+# 最后检查必填项
+[[ -z "$MODE" ]] && {
+	echo "❌ Error: --mode is required"
+	usage
+}
+
+echo "🚀 Starting in $MODE mode..."
+
+#! ---- Logics ----
 
 # check env
 : "${ENV?env-var ENV is required}"
 : "${PROJECT_ROOT_LOCAL_DIR?env-var PROJECT_ROOT_LOCAL_DIR is required}"
 : "${CONF_SYNC_GIT_REPO_LOCAL_DIR?env-var CONF_SYNC_GIT_REPO_LOCAL_DIR is required}"
 : "${NGINX_SYSTEM_CONF_DIR?env-var NGINX_SYSTEM_CONF_DIR is required}"
-: "${SYSTEMD_SERVICE_NAME?env-var SYSTEMD_SERVICE_NAME is required}"
+: "${SYSTEMD_SERVICE_FILE_NAME?env-var SYSTEMD_SERVICE_FILE_NAME is required}"
+: "${BACKEND_ROOT_DIR?env-var BACKEND_ROOT_DIR is required}"
+#! pre-define each key module dirs
+CONFGEN_DIR="$PROJECT_ROOT_LOCAL_DIR/confgen"
+FRONTEND_DIR="$PROJECT_ROOT_LOCAL_DIR/frontend"
+NGINX_CONFGEN_RESULT_DIR="$PROJECT_ROOT_LOCAL_DIR/nginx"
 
-
-PROD_CONF_PROJECT_INSIDE_DIR="$PROJECT_ROOT_LOCAL_DIR/confgen/uni-conf/$ENV"
-
-# prepare conf from another private repo: 
-# 1. enter the private repo to fetch the latest conf 2. link it to the project inside
-echo "pull the config file ${ENV}.py from ${CONF_SYNC_GIT_REPO_LOCAL_DIR} git repo"
-cd $CONF_SYNC_GIT_REPO_LOCAL_DIR
-git pull
-mkdir -p $PROD_CONF_PROJECT_INSIDE_DIR
-ln -sn "$CONF_SYNC_GIT_REPO_LOCAL_DIR/${ENV}.py" "$PROD_CONF_PROJECT_INSIDE_DIR/conf.py" || true # skip set -x
-# go to workdir
+#! 1. update project root dir if necessary
 cd $PROJECT_ROOT_LOCAL_DIR
-echo "now switch to release branch"
-# 1. switch to release branch
-git fetch origin --prune
-git checkout release
-git reset --hard origin/release
-# 2. create venv & install dependency & install editable mode
-echo "create venv & install dependency"
-uv sync --frozen --no-dev  # --frozen 保证不修改 lock 文件，--no-dev 只装生产依赖
-# 4. gen conf; link the nginx conf to the system nginx conf dir
-echo "Generate conf for $ENV"
-cd  "$PROJECT_ROOT_LOCAL_DIR/confgen"
-uv run python gen.py -e $ENV
-echo "Link nginx conf"
-ln -sn "$PROJECT_ROOT_LOCAL_DIR/nginx/${ENV}.conf" "$NGINX_SYSTEM_CONF_DIR/docgate.conf" || true
-# 5. build vite
-echo "Pnpm install & Vite build"
-cd  "$PROJECT_ROOT_LOCAL_DIR/frontend"
+if [[ "$MODE" == "serving" ]]; then
+	# 生产模式：强制同步
+	git_update_to_branch "$PROJECT_ROOT_LOCAL_DIR" "release"
+elif [[ "$MODE" == "deving" ]]; then
+	# 开发模式：跳过同步
+	echo "⚠️  Mode is [deving]: Skipping git sync to preserve local changes."
+else
+	# 兜底逻辑：防止 MODE 变量由于某种原因变成了奇怪的值
+	echo "❌ Error: Unknown mode '$MODE'"
+	exit 1
+fi
+#! 2. gen all configs from confgen
+echo "🐟 Generate conf for [$ENV]"
+UNICONF_PROJECT_INSIDE_DIR="${CONFGEN_DIR}/src/docgate_confgen/unified_conf/$ENV"
+# * 1. prepare conf from another private repo:
+# > a. enter the private repo to fetch the latest conf b. link it to the project inside
+echo "> pull the config ${ENV}.py from ${CONF_SYNC_GIT_REPO_LOCAL_DIR} git repo"
+git_update_to_branch $CONF_SYNC_GIT_REPO_LOCAL_DIR "main"
+mkdir -p $UNICONF_PROJECT_INSIDE_DIR
+safe_ln_test_and_link "$UNICONF_PROJECT_INSIDE_DIR/conf.py" "$CONF_SYNC_GIT_REPO_LOCAL_DIR/${ENV}.py"
+# * 2. cd confgen dir, create uv env
+echo "> prepare confgen uv env"
+cd "${CONFGEN_DIR}"
+uv sync --frozen --no-dev # --frozen 保证不修改 lock 文件，--no-dev 只装生产依赖
+# * 3. gen configs and env vars
+echo "> Gen all configs and envs"
+uv run python cli.py -e "$ENV"
+
+#! 3. build vite app
+echo "🐟 Pnpm install & Vite build"
+cd "$FRONTEND_DIR"
 pnpm i
 pnpm run build
 
-# 6. install gunicorn services for fastapi
+#! 4. prepare backend env
+echo "🐟 Prepare backend env"
+cd "${BACKEND_ROOT_DIR}"
+uv sync --frozen --no-dev
 
-service_fname="$SYSTEMD_SERVICE_NAME.service"
-service_target_fpath="/etc/systemd/system/$service_fname"
-service_source_fpath="$SCRIPT_DIR/$service_fname"
+#! 5. install/update backend(fastapi) services
+echo "🐟 Install/Update backend(fastapi) service"
+deploy_gunicorn_systemd_service "${SCRIPT_DIR}/${SYSTEMD_SERVICE_FILE_NAME}"
 
-if [ ! -f "$service_target_fpath" ]; then
-  echo "Install gunicorn for fastapi services"
-  sudo cp $service_source_fpath $service_target_fpath
-  sudo systemctl daemon-reload
-  sudo systemctl enable $SYSTEMD_SERVICE_NAME
-  sudo systemctl start $SYSTEMD_SERVICE_NAME
-else
-  echo "Update gunicorn fastapi services"
-  sudo cp $service_source_fpath $service_target_fpath
-  sudo systemctl daemon-reload
-  sudo systemctl enable $SYSTEMD_SERVICE_NAME
-  sudo systemctl restart $SYSTEMD_SERVICE_NAME
-fi
-
-echo "Test Nginx config & Restart Nginx"
+#! 6. install/update nginx conf and restart.
+echo "🐟 Install/Update & Test Nginx config & Restart Nginx"
 # restart nginx
-nginx -t
-systemctl restart nginx
+# 4. gen conf; link the nginx conf to the system nginx conf dir
+_args=(
+	"$NGINX_SYSTEM_CONF_DIR/docgate.conf"   # tgt
+	"$NGINX_CONFGEN_RESULT_DIR/${ENV}.conf" # src: private conf dir
+)
+safe_ln_test_and_link "${_args[@]}"
+sudo nginx -t
+sudo systemctl restart nginx
 
 echo "All done"

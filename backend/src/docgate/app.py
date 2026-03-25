@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fs_pyutils.systemd_notifier import systemd_notifier_lifespan
 from starlette.middleware.cors import CORSMiddleware
 from supertokens_python import get_all_cors_headers
 from supertokens_python.framework.fastapi import get_middleware
@@ -38,9 +39,10 @@ logger.info("Build app")
 
 @asynccontextmanager
 async def lifespan_main(app: FastAPI) -> AsyncGenerator[Any, None]:
-  async with lifespan_db(app):
+  async with lifespan_db(app) as async_engine:
     await async_init_roles()
-    yield
+    async with systemd_notifier_lifespan(app=app, async_db_engine=async_engine, logger=logger):
+      yield
 
 
 app = FastAPI(title=f"{config.APP_NAME}-backend", lifespan=lifespan_main)

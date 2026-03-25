@@ -1,0 +1,34 @@
+[project]
+name = "docgate-confgen"
+version = "2.0.0"
+description = "A unified config-gen script to generate config/env for each modules."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.12.5"]
+
+[tool.ruff]
+line-length = 120
+indent-width = 2
+
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
+
+[tool.ruff.lint]
+# 确保 "I" (isort) 规则在启用列表中
+select = ["E", "F", "B", "UP", "I", "RET"]
+
+[tool.ruff.lint.isort]
+# 这里可以像 isort 一样自定义配置
+force-single-line = false # 是否强制单行导入
+combine-as-imports = true # 是否合并 import as
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.7",
+]

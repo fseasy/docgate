@@ -1,3 +1,12 @@
+## 26.03.25
+
+### gunicorn hang when systemd trigger restart
+
+it might because control_socket race issue.
+
+set `control_socket_disable = True` in gunicorn.conf.py to fix it.
+
+
 ## 26.02.26
 
 ### css box-sizing

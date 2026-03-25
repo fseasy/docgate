@@ -1,46 +1,47 @@
-import argparse
 import sys
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any
 
 from pydantic import BaseModel
 
-from confgen.data_types import BackupManager, EnvConfT, EnvT
-from confgen.nginx_conf_gen import NginxConfGen
+from .data_types import BackupManager, EnvConfT, EnvT
+from .nginx_conf_gen import NginxConfGen
 
 g_backup: BackupManager | None = None
 
 
-def main() -> None:
+def main(env: EnvT) -> None:
   global g_backup
 
-  parser = argparse.ArgumentParser(description="Config generator")
-
-  parser.add_argument("--env", "-e", required=True, choices=get_args(EnvT), help="generate which env")
-  args = parser.parse_args()
-
-  env = args.env
   g_backup = BackupManager(env)
 
   conf = _get_env_conf(env)
   _gen_backend_conf(env, conf)
   _gen_vite_conf(env, conf)
   _gen_nginx_conf(env, conf)
-  print("===> Finished.")
 
 
 def _get_env_conf(env: EnvT) -> EnvConfT:
-  import importlib
+  if env == "dev":
+    from .unified_conf.dev.conf import Conf as dev_conf
 
-  module_name = f"confgen.uni-conf.{env}.conf"
-  c = importlib.import_module(module_name)
-  conf: EnvConfT = c.Conf
-  return conf
+    return dev_conf
+  if env == "prod":
+    from .unified_conf.prod.conf import Conf as prod_conf
+
+    return prod_conf
+  if env == "staging":
+    from .unified_conf.staging.conf import Conf as staging_conf  # type: ignore
+
+    return staging_conf
+
+  raise ValueError(f"failed to load unified-env as invalid env value: {env}")
 
 
 def _gen_backend_conf(env: EnvT, c: EnvConfT) -> None:
   backend_dir = c.module_dir.backend
-  env2suffix: dict[EnvT, str] = {"dev": "local", "staging": "staging", "prod": "production"}
+  # make independent env to make debug easier
+  env2suffix: dict[EnvT, str] = {"dev": "dev", "staging": "staging", "prod": "prod"}
   suffix = env2suffix[env]
   # back-compatibility for manual management
   shared_conf_path = backend_dir / f".env.client_shared.{suffix}"
@@ -70,8 +71,13 @@ def _gen_backend_conf(env: EnvT, c: EnvConfT) -> None:
 
 def _gen_vite_conf(env: EnvT, c: EnvConfT) -> None:
   vite_dir = c.module_dir.vite
-  env2suffix: dict[EnvT, str] = {"dev": "local", "staging": "staging", "prod": "production"}
-  suffix = env2suffix[env]
+  #! note: here we also mapping staging to production name, so we can just use the default `build` param
+  env2vite_default_suffix: dict[EnvT, str] = {
+    "dev": "development.local",
+    "staging": "production.local",
+    "prod": "production.local",
+  }
+  suffix = env2vite_default_suffix[env]
   env_path = vite_dir / f".env.{suffix}"
   _write_dict2env_file(_get_vite_backend_shared_data(c), env_path)
   print(f"WRITE> vite-env-conf: {env_path}", file=sys.stderr)
@@ -114,7 +120,3 @@ def _write_dict2env_file(env_dict: dict[str, Any], file_path: Path) -> None:
     for key, value in env_dict.items():
       safe_value = shlex.quote(str(value))
       f.write(f"{key}={safe_value}\n")
-
-
-if __name__ == "__main__":
-  main()

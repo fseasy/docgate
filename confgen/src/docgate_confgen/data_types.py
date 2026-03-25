@@ -56,12 +56,17 @@ class SMTPConfT(BaseModel):
   SMTP_SECURE: bool
 
 
-def _gen_abs_dir(rel_dir: str, check: bool = True) -> Path:
-  _cur = Path(__file__).parent
-  abs_dir = _cur / rel_dir
+def _workroot_relpath2abs(relpath: str, check: bool = True) -> Path:
+  """Transform a relative path (relative to the workroot dir) to the absolute path
+  Args:
+    relpath: relative path to the workroot (dir of the confgen)
+  """
+  # __file__ = xxx/confgen/src/$PACKAGE_NAME/data_types.py .p.p.p => xxx/confgen/
+  _root = Path(__file__).parent.parent.parent
+  abs_dir = _root / relpath
   abs_dir = abs_dir.resolve().absolute()
   if check:
-    assert abs_dir.exists(), f"{rel_dir} (abs-path={abs_dir}) Not exists!"
+    assert abs_dir.exists(), f"{relpath} (abs-path={abs_dir}) Not exists!"
   return abs_dir
 
 
@@ -83,7 +88,7 @@ class NginxConfT(BaseModel):
   server_name: str | None = None
   ssl_conf_lines: list[str] | None = None
   access_log: NginxLogConf | None = Field(
-    default=NginxLogConf(type="file", setting=str(_gen_abs_dir("../nginx/log/access.log", check=False)))
+    default=NginxLogConf(type="file", setting=str(_workroot_relpath2abs("../nginx/log/access.log", check=False)))
   )
   error_log: NginxLogConf | None = None
 
@@ -127,9 +132,9 @@ class DeployConfT(BaseModel):
 
 
 class ModuleDirT(BaseModel):
-  backend: Path = Field(description="backend dir", default=_gen_abs_dir("../docgate"))
-  vite: Path = Field(description="vite dir", default=_gen_abs_dir("../frontend"))
-  nginx: Path = Field(description="nginx conf dir", default=_gen_abs_dir("../nginx"))
+  backend: Path = Field(description="backend dir", default=_workroot_relpath2abs("../backend/src/docgate"))
+  vite: Path = Field(description="vite dir", default=_workroot_relpath2abs("../frontend"))
+  nginx: Path = Field(description="nginx conf dir", default=_workroot_relpath2abs("../nginx"))
 
 
 class EnvConfT(BaseModel):
@@ -147,7 +152,7 @@ class BackupManager:
     import time
 
     sig = time.strftime("%m%d-%H%M%S")
-    self._cur_dir = _gen_abs_dir(f"./backup/{env}/{sig}", check=False)
+    self._cur_dir = _workroot_relpath2abs(f"./backup/{env}/{sig}", check=False)
     self._cur_dir.mkdir(parents=True, exist_ok=True)
 
   def backup(self, src_path: Path, name: str) -> None:

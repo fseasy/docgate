@@ -10,7 +10,7 @@ from typing import Self, TypedDict, TypeVar
 import httpx
 from jwt import PyJWK, PyJWKClient, decode, get_unverified_header
 from jwt.exceptions import DecodeError, PyJWKClientError
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .config import LOGGER as logger, SUPERTOKENS_CONNECTION_URI
 

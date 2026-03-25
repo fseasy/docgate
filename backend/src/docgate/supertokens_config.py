@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import traceback
-from collections.abc import Callable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
@@ -24,8 +25,7 @@ from . import config as base_conf
 
 if TYPE_CHECKING:
   from supertokens_python.recipe.session.interfaces import SessionContainer
-  from supertokens_python.recipe_module import RecipeModule
-  from supertokens_python.supertokens import AppInfo
+  from supertokens_python.supertokens import RecipeInit
 
 
 logger = base_conf.LOGGER
@@ -76,13 +76,12 @@ class StRole(StrEnum):
   ADMIN = "admin"
 
 
-def _init_emailpassword() -> "Callable[[AppInfo], RecipeModule]":
+def _init_emailpassword() -> RecipeInit:
   from supertokens_python.recipe.emailpassword import InputFormField
 
   from .logics import CreateDbUserLogic, CreateUserStatus, FormFieldId, UserPermissionLogic, validate_password
 
   def _override_email_password_apis(original_implementation: APIInterface) -> APIInterface:
-    from supertokens_python.recipe.session.interfaces import SessionContainer
 
     original_sign_up_post = original_implementation.sign_up_post
 
@@ -186,7 +185,7 @@ def _override_session_functions(original_implementation: SessionRecipeInterface)
     disable_anti_csrf: bool | None,
     tenant_id: str,
     user_context: dict[str, Any],
-  ) -> "SessionContainer":
+  ) -> SessionContainer:
     # * Add email to the access session payload
     user_data = await async_get_user(user_id)
     if user_data and user_data.emails:
