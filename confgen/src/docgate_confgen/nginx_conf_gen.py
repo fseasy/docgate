@@ -288,6 +288,12 @@ _VITE_SECTION_FMT = r"""
 location ^~ /{VITE_PREFIX}/ {{
 {VITE_SETTING}
 }}
+
+# - fix the issue of `/app` internal redirection circle 
+location = /{VITE_PREFIX} {{
+    return 301 $scheme://$http_host/{VITE_PREFIX}/;
+}}
+
 # ---- End of React Part
 """
 
