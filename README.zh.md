@@ -2,7 +2,7 @@
 
 [English](./README.md) | [中文](./README.zh.md)
 
-Docgate 是一个面向 [大娟的亲子英语](dajuan.fseasy.top) 这类产品的内容访问控制方案。它的目标是在静态博客内容（如 hugo）之上增加一层鉴权，实现登录、邮箱验证、会员购买（预付码兑换、 Stripe 付费）能力。
+Docgate 是一个面向 [大娟的亲子英语](https://dajuan.fseasy.top) 这类产品的内容访问控制方案。它的目标是在静态博客内容（如 hugo）之上增加一层鉴权，实现登录、邮箱验证、会员购买（预付码兑换、 Stripe 付费）能力。
 
 它采用一个比较直接的模型：Nginx 负责入口和路由，React + FastAPI 负责鉴权、购买流程，静态内容则继续静态化交付，与此不做强绑定（但针对需要开放权限的部分，还是需要通过 Config 在 Nginx 侧放开权限）。
 
