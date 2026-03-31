@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source $SCRIPT_DIR/../src/docgate/.env.server.local
+: "${ENV?env-var ENV is required}"
+source "$SCRIPT_DIR/../src/docgate/.env.server.${ENV}"
 source $SCRIPT_DIR/.env.supertokens_account
 
 : "${SUPERTOKENS_CONNECTION_URI?env-var SUPERTOKENS_CONNECTION_URI is required}"
