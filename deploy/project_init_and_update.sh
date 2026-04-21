@@ -62,7 +62,6 @@ echo "🚀 Starting in $MODE mode..."
 # check env
 : "${ENV?env-var ENV is required}"
 : "${PROJECT_ROOT_LOCAL_DIR?env-var PROJECT_ROOT_LOCAL_DIR is required}"
-: "${CONF_SYNC_GIT_REPO_LOCAL_DIR?env-var CONF_SYNC_GIT_REPO_LOCAL_DIR is required}"
 : "${NGINX_SYSTEM_CONF_DIR?env-var NGINX_SYSTEM_CONF_DIR is required}"
 : "${SYSTEMD_SERVICE_FILE_NAME?env-var SYSTEMD_SERVICE_FILE_NAME is required}"
 : "${BACKEND_ROOT_DIR?env-var BACKEND_ROOT_DIR is required}"
@@ -86,13 +85,15 @@ else
 fi
 #! 2. gen all configs from confgen
 echo "🐟 Generate conf for [$ENV]"
-UNICONF_PROJECT_INSIDE_DIR="${CONFGEN_DIR}/src/docgate_confgen/unified_conf/$ENV"
-# * 1. prepare conf from another private repo:
+UNICONF_PROJECT_INSIDE_DIR="${CONFGEN_DIR}/src/docgate_confgen/unified_conf/$ENV/conf.py"
+# * 1. assert conf exists
 # > a. enter the private repo to fetch the latest conf b. link it to the project inside
-echo "> pull the config ${ENV}.py from ${CONF_SYNC_GIT_REPO_LOCAL_DIR} git repo"
-git_update_to_branch $CONF_SYNC_GIT_REPO_LOCAL_DIR "main"
-mkdir -p $UNICONF_PROJECT_INSIDE_DIR
-safe_ln_test_and_link "$UNICONF_PROJECT_INSIDE_DIR/conf.py" "$CONF_SYNC_GIT_REPO_LOCAL_DIR/${ENV}.py"
+echo "> assert ${UNICONF_PROJECT_INSIDE_DIR}"
+test -f "$UNICONF_PROJECT_INSIDE_DIR" || {
+	echo "错误: Conf 文件不存在 $UNICONF_PROJECT_INSIDE_DIR"
+	exit 1
+}
+
 # * 2. cd confgen dir, create uv env
 echo "> prepare confgen uv env"
 cd "${CONFGEN_DIR}"
