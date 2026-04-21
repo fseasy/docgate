@@ -10,16 +10,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Execute remote ssh commands
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.PORT }}
-          script: |
-            cd ${{ secrets.DOCGATE_DEPLOY_DIR }}
-            # update the repo first
-            git fetch origin --prune && git checkout release && git reset --hard origin/release && \
-            ./env_init.sh && \
-            ./project_init_and_update.sh --mode serving
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+
+
+      - name: Create secrets file
+        env:
+          CONF_CONTENT: ${{ secrets.PROD_CONF_PY_CONTENT }}
+        run: |
+
+          # write config
+          UNI_CONF_DIR="./confgen/src/docgate_confgen/unified_conf/prod"
+          mkdir -p "$UNI_CONF_DIR"
+          # 使用环境变量，可以完全无视 conf 的缩进问题
+          printf "%s" "$CONF_CONTENT" > "$UNI_CONF_DIR/conf.py"
+          
+          # 检查文件是否创建成功（不打印内容，只打印行数以保密）
+          echo "Created $UNI_CONF_DIR/conf.py with $(wc -l < $UNI_CONF_DIR/conf.py) lines"
+
+      - name: Deploy via Rsync and Trigger Update
+        run: |
+          eval $(ssh-agent -s)
+          echo "${{ secrets.SSH_KEY }}" | ssh-add -
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.PORT }} -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+          # 执行同步
+          # --exclude 用于忽略当前目录或者保留目标侧目录
+          rsync -avz --delete \
+            --exclude="/.git/" \
+            --exclude="/.github/" \
+            --exclude="/backend/.venv/" \
+            --exclude="/frontend/node_modules/" \
+            -e "ssh -p ${{ secrets.PORT }}" \
+            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:${{ secrets.DEPLOY_DIR }}
+
+          # 触发后续部署脚本
+          ssh -p ${{ secrets.PORT }} ${{ secrets.USER }}@${{ secrets.HOST }} "docgate-deploy"

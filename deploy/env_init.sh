@@ -6,7 +6,6 @@
 
 # we assume
 # 1. nginx has already been installed
-# 2. private repo that contains config file (used for `confgen/gen.py`) has already been cloned.
 # Then **fill/change** the following ENV vars so we can then run the `project_init.sh`
 
 set -Eeuo pipefail
@@ -58,7 +57,6 @@ fi
 
 # 3. 使用 : "${VAR:=DEFAULT}" 语法: 如果变量未设置或为空，则赋值为等号后面的默认值
 : "${ENV:="prod"}"
-: "${CONF_SYNC_GIT_REPO_LOCAL_DIR:="/root/github/private-conf/web/docgate/confgen"}"
 : "${NGINX_SYSTEM_CONF_DIR:="/etc/nginx/conf.d"}"
 # following 3 are used for GunicornSyslogLogger
 : "${SYSLOG_ADDRESS:="127.0.0.1:11514"}"
@@ -69,7 +67,6 @@ cat >$SCRIPT_DIR/.env <<EOF
 
 ENV="$ENV"
 PROJECT_ROOT_LOCAL_DIR="$PROJECT_ROOT_LOCAL_DIR"
-CONF_SYNC_GIT_REPO_LOCAL_DIR="$CONF_SYNC_GIT_REPO_LOCAL_DIR"
 NGINX_SYSTEM_CONF_DIR="$NGINX_SYSTEM_CONF_DIR"
 SYSTEMD_SERVICE_FILE_NAME="${SYSTEMD_SERVICE_FILE_NAME}"
 BACKEND_ROOT_DIR="$BACKEND_ROOT_DIR"
@@ -88,8 +85,8 @@ Type=notify
 NotifyAccess=all
 
 # NOTE: here I just set it to root. Change as your actual condition.
-User=root
-Group=root
+User=www-service
+Group=www-service
 WorkingDirectory=$BACKEND_ROOT_DIR
 Environment="ENV=$ENV"
 # required by gunicorn & fastapi service logger
