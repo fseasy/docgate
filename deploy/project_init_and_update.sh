@@ -73,8 +73,7 @@ NGINX_CONFGEN_RESULT_DIR="$PROJECT_ROOT_LOCAL_DIR/nginx"
 #! 1. update project root dir if necessary
 cd $PROJECT_ROOT_LOCAL_DIR
 if [[ "$MODE" == "serving" ]]; then
-	# 生产模式：强制同步
-	git_update_to_branch "$PROJECT_ROOT_LOCAL_DIR" "release"
+	echo "⚠️  Mode is [serving]: now just use the given files"
 elif [[ "$MODE" == "deving" ]]; then
 	# 开发模式：跳过同步
 	echo "⚠️  Mode is [deving]: Skipping git sync to preserve local changes."

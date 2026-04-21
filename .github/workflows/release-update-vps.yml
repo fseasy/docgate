@@ -13,8 +13,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-
-
       - name: Create secrets file
         env:
           CONF_CONTENT: ${{ secrets.PROD_CONF_PY_CONTENT }}
