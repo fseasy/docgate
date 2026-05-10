@@ -42,15 +42,6 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {
-              if (id.includes("react-router")) {
-                return "router-vendor";
-              }
-              if (id.includes("supertokens")) {
-                return "supertokens-vendor";
-              }
-              if (id.includes("react")) {
-                return "react-vendor";
-              }
               return "vendor";
             }
           }
