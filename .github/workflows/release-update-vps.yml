@@ -17,7 +17,9 @@ jobs:
         env:
           CONF_CONTENT: ${{ secrets.PROD_CONF_PY_CONTENT }}
         run: |
-
+          # TODO: 1. currently it's useless. Leave it as we may use it in the future
+          # future: pnpm build should be run in github action, as vps Memory is too small to handle the build process
+          #         quickly.
           # write config
           UNI_CONF_DIR="./confgen/src/docgate_confgen/unified_conf/prod"
           mkdir -p "$UNI_CONF_DIR"

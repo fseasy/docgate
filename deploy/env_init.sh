@@ -84,7 +84,7 @@ After=network.target
 Type=notify
 NotifyAccess=all
 
-# NOTE: here I just set it to root. Change as your actual condition.
+# NOTE: here I set it to www-service. Change as your actual condition.
 User=www-service
 Group=www-service
 WorkingDirectory=$BACKEND_ROOT_DIR
